@@ -7,6 +7,7 @@
             toolbar: null,
             pagination: true,
             sidePagination: 'server',
+            paginationVAlign: 'bottom',
             pageNumber: 1,
             pageSize: 10,
             showHeader: true,
@@ -14,6 +15,7 @@
             url: null,
             data: null,
             columns: [],
+            rowStyle: function (row, index, $tr) {},
             queryParams: function (params) {
                 return params;
             },
@@ -32,6 +34,8 @@
     };
 
     const wrapperClass = 'bs-table-wrapper';
+    const wrapperTableClass = 'bs-table-inner-wrapper';
+    const wrapperOverlayClass = 'bs-table-wrapper-overlay';
     const namespace = '.bs.table';
 
     $.fn.bsTable = function (optionsOrMethod, ...args) {
@@ -52,6 +56,7 @@
             };
             $table.data('bsTable', bsTable);
             buildTable($table);
+            events($table);
         }
 
         return $table;
@@ -110,20 +115,40 @@
         $table.empty(); // Tabelle leeren
         const settings = getSettings($table);
 
-        console.log("Build Table Settings:", settings); // Debugging für Einstellungen
+        // Erstelle den Haupt-Wrapper
+        const $wrapper = $('<div class="' + wrapperClass + ' position-relative"></div>').insertAfter($table);
 
-        const $wrapper = $('<div class="' + wrapperClass + '"></div>').insertAfter($table);
-        $table.appendTo($wrapper);
-        $table.addClass(settings.classes);
+        let tableClasses = '';
+        if(typeof settings.classes === 'string'){
+            tableClasses = settings.classes;
+        } else if(typeof settings.classes === 'object') {
+            tableClasses = settings.classes.table;
+        }
+
+        // Erstelle den scrollbaren `table-responsive` Bereich
+        const $tableResponsiveWrapper = $('<div class="position-relative"></div>').appendTo($wrapper);
+        $table.appendTo($tableResponsiveWrapper);
+
+        // Pagination-Container über und unter der Tabelle platzieren (außerhalb von table-responsive)
+        const $paginationContainerTop = $('<div class="bs-table-pagination-container top"></div>').appendTo($wrapper);
+        const $paginationContainerBottom = $('<div class="bs-table-pagination-container bottom"></div>').appendTo($wrapper);
+
+        // Grundklassen an die Tabelle anwenden
+        $table.addClass(tableClasses);
         $('<thead></thead>').appendTo($table);
         $('<tbody></tbody>').appendTo($table);
         $('<tfoot></tfoot>').appendTo($table);
 
+        // Falls ein Toolbar-Element definiert ist
         if (settings.toolbar && $(settings.toolbar).length > 0) {
             $(settings.toolbar).prependTo($wrapper);
         }
 
-        const $paginationContainer = $('<div class="bs-table-pagination"></div>').appendTo($wrapper);
+        // Generiere Header (basierend auf Spalten)
+        buildTableHeader($table, settings.columns);
+
+        // Zeige einen Ladeplatzhalter
+        showLoading($table);
 
         // Überprüfung der Datenquelle
         if (settings.sidePagination === 'server') {
@@ -133,36 +158,90 @@
             }
             fetchDataWithPromise($table)
                 .then((response) => {
-                    if (!response.rows || !response.rows.length) {
-                        console.error("Keine Daten vom Server erhalten. Überprüfe die Antwortstruktur.");
-                    }
-                    renderTableWithPagination($table, settings, response, $paginationContainer);
+                    renderTableWithPagination(
+                        $table,
+                        settings,
+                        response,
+                        $paginationContainerTop,
+                        $paginationContainerBottom
+                    );
                 })
                 .catch((error) => {
                     console.error("Fehler beim Abrufen der Server-Daten:", error.message);
+                })
+                .finally(() => {
+                    hideLoading($table);
                 });
         } else if (settings.sidePagination === 'client') {
             if (settings.data && Array.isArray(settings.data) && settings.data.length > 0) {
-                // Verwende lokale Daten
                 const clientResponse = { rows: settings.data, total: settings.data.length };
-                renderTableWithPagination($table, settings, clientResponse, $paginationContainer);
+                renderTableWithPagination(
+                    $table,
+                    settings,
+                    clientResponse,
+                    $paginationContainerTop,
+                    $paginationContainerBottom
+                );
             } else if (settings.url) {
-                console.log("Client-seitige Pagination: Daten werden von der URL geladen.");
                 fetchDataWithPromise($table)
                     .then((response) => {
-                        settings.data = response.rows || response; // Daten speichern
-                        renderTableWithPagination($table, settings, { rows: settings.data, total: settings.data.length }, $paginationContainer);
+                        settings.data = response.rows || response; // Lokale Daten speichern
+                        renderTableWithPagination(
+                            $table,
+                            settings,
+                            {
+                                rows: settings.data,
+                                total: settings.data.length,
+                            },
+                            $paginationContainerTop,
+                            $paginationContainerBottom
+                        );
                     })
                     .catch((error) => {
                         console.error("Fehler beim Abrufen der Daten:", error.message);
+                    })
+                    .finally(() => {
+                        hideLoading($table);
                     });
             } else {
-                console.error("Keine client-seitigen Daten verfügbar und keine URL definiert!");
+                hideLoading($table);
+                console.error("Keine Datenquelle definiert!");
             }
         }
     }
 
-    function renderTableWithPagination($table, settings, response, $paginationContainer) {
+    function hideLoading($table) {
+        const $overlay = $table.closest('.' + wrapperClass).find('.' + wrapperOverlayClass);
+        $overlay.remove();
+    }
+
+    function showLoading($table) {
+        const settings = getSettings($table);
+
+        const wrapper = $table.closest('.' + wrapperClass);
+        // Entferne vorhandenes Overlay, falls es existiert
+        hideLoading($table);
+
+        // Anzahl der Zeilen und Spalten basierend auf den Einstellungen
+        const columnCount = settings.columns.length;
+        const rowCount = settings.pageSize;
+
+        // Overlay generieren
+        const $overlay = $('<div>', {
+            class: wrapperOverlayClass + ' position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center opacity-75 bg-body',
+            css: {
+                zIndex: 4,
+            }
+        }).appendTo(wrapper);
+
+        // // Placeholder-Struktur erstellen
+        const $content = $(`
+<div class="spinner-border"  style="width: 3rem; height: 3rem;"   role="status">
+  <span class="visually-hidden">Loading...</span>
+</div>`).appendTo($overlay);
+    }
+
+    function renderTableWithPagination($table, settings, response) {
         console.log("RenderTable Input Data:", response); // Debugging
         const totalRows = response.total || (response.rows ? response.rows.length : 0);
         const pageSize = settings.pageSize;
@@ -183,91 +262,168 @@
             buildTableBody($table, currentPageData);
             buildTableFooter($table, settings.columns, response.rows);
         } else {
-            console.log("Keine Spalten definiert!");
+            console.log("no columns in settings!");
         }
 
-        if (settings.pagination && $paginationContainer.length) {
-            createPagination($paginationContainer, $table, totalRows);
+        if (settings.pagination) {
+            const $wrapper = $table.closest(`.${wrapperClass}`);
+
+            // Entferne vorher alle alten Pagination-Container
+            $wrapper.find('.bs-table-pagination-container').remove();
+
+            // Pagination-HTML generieren
+            const $paginationHtml = createPagination($table, totalRows);
+
+            // Pagination anhand von paginationVAlign anzeigen
+            if (settings.paginationVAlign === 'top' || settings.paginationVAlign === 'both') {
+                const $topPaginationContainer = $('<div class="bs-table-pagination-container top"></div>');
+                $topPaginationContainer.append($paginationHtml.clone());
+                $wrapper.prepend($topPaginationContainer); // Über der Tabelle einfügen
+            }
+
+            if (settings.paginationVAlign === 'bottom' || settings.paginationVAlign === 'both') {
+                const $bottomPaginationContainer = $('<div class="bs-table-pagination-container bottom"></div>');
+                $bottomPaginationContainer.append($paginationHtml.clone());
+                $wrapper.append($bottomPaginationContainer); // Unter der Tabelle einfügen
+            }
         }
     }
-    function createPagination($paginationContainer, $table, totalRows) {
+
+    function createPagination($table, totalRows) {
         const settings = getSettings($table);
 
-        // Berechne die Gesamtanzahl an Seiten
+        // Berechne die Gesamtanzahl der Seiten
         const totalPages = Math.ceil(totalRows / settings.pageSize);
         const currentPage = settings.pageNumber || 1;
 
-        // Entferne alte Pagination
-        $paginationContainer.empty();
-
-        // Bootstrap Pagination Wrapper erstellen
-        const $pagination = $('<nav></nav>', {
-            'aria-label': 'Table pagination'
-        }).appendTo($paginationContainer);
+        const $paginationWrapper = $('<nav></nav>', {'aria-label': 'Table pagination'});
 
         const $paginationList = $('<ul></ul>', {
             class: 'pagination justify-content-center'
-        }).appendTo($pagination);
+        }).appendTo($paginationWrapper);
 
-        // "Vorherige"-Button
-        const $prevItem = $('<li></li>', {
+        // "First"-Button
+        const $firstItem = $('<li></li>', {
+
             class: `page-item ${currentPage === 1 ? 'disabled' : ''}`
         }).appendTo($paginationList);
 
         $('<a></a>', {
+            'aria-label': 'first',
             class: 'page-link',
             href: '#',
             tabindex: currentPage === 1 ? '-1' : '',
             'aria-disabled': currentPage === 1 ? 'true' : 'false',
-            html: '&laquo;', // Pfeil zurück
-        }).appendTo($prevItem).on('click', function (e) {
+            html: '<i class="bi bi-chevron-double-left"></i>',
+        }).appendTo($firstItem).on('click', function (e) {
             e.preventDefault();
             if (currentPage > 1) {
-                settings.pageNumber = currentPage - 1; // Vorherige Seite
+                settings.pageNumber = 1;
                 setSettings($table, settings);
-                handlePaginationChange($table); // Daten neu laden
+                handlePaginationChange($table);
             }
         });
 
-        // Seiten-Buttons erstellen
-        for (let i = 1; i <= totalPages; i++) {
-            const $pageItem = $('<li></li>', {
-                class: `page-item ${i === currentPage ? 'active' : ''}`,
-            }).appendTo($paginationList);
+        // "Previous"-Button
+        const $prevItem = $('<li></li>', {
+            'aria-label': 'previous',
+            class: `page-item ${currentPage === 1 ? 'disabled' : ''}`
+        }).appendTo($paginationList);
 
-            $('<a></a>', {
-                class: 'page-link',
-                href: '#',
-                text: i,
-            }).appendTo($pageItem).on('click', function (e) {
-                e.preventDefault();
-                if (i !== currentPage) {
-                    settings.pageNumber = i; // Neue Seite setzen
-                    setSettings($table, settings);
-                    handlePaginationChange($table); // Daten neu laden
-                }
-            });
-        }
+        $('<a></a>', {
 
-        // "Nächste"-Button
+            class: 'page-link',
+            href: '#',
+            tabindex: currentPage === 1 ? '-1' : '',
+            'aria-disabled': currentPage === 1 ? 'true' : 'false',
+            html: '<i class="bi bi-chevron-left"></i>',
+        }).appendTo($prevItem).on('click', function (e) {
+            e.preventDefault();
+            if (currentPage > 1) {
+                settings.pageNumber = currentPage - 1;
+                setSettings($table, settings);
+                handlePaginationChange($table);
+            }
+        });
+
+        // Sichtbare Seiten (berechne die Seitennummern)
+        const visiblePages = calculateVisiblePages(totalPages, currentPage);
+
+        visiblePages.forEach(page => {
+            if (page === "...") {
+                $('<li></li>', {
+                    class: 'page-item disabled'
+                }).append(
+                    $('<a></a>', {
+                        class: 'page-link',
+                        text: '...'
+                    })
+                ).appendTo($paginationList);
+            } else {
+                const $pageItem = $('<li></li>', {
+                    class: `page-item ${page === currentPage ? 'active' : ''}`
+                }).appendTo($paginationList);
+
+                $('<a></a>', {
+                    class: 'page-link',
+                    href: '#',
+                    text: page
+                }).appendTo($pageItem).on('click', function (e) {
+                    e.preventDefault();
+                    if (page !== currentPage) {
+                        settings.pageNumber = page;
+                        setSettings($table, settings);
+                        handlePaginationChange($table);
+                    }
+                });
+            }
+        });
+
+        // "Next"-Button
         const $nextItem = $('<li></li>', {
+
             class: `page-item ${currentPage === totalPages ? 'disabled' : ''}`
         }).appendTo($paginationList);
 
         $('<a></a>', {
+            'aria-label': 'next',
             class: 'page-link',
             href: '#',
             tabindex: currentPage === totalPages ? '-1' : '',
             'aria-disabled': currentPage === totalPages ? 'true' : 'false',
-            html: '&raquo;', // Pfeil vorwärts
+            html: '<i class="bi bi-chevron-right"></i>',
         }).appendTo($nextItem).on('click', function (e) {
             e.preventDefault();
             if (currentPage < totalPages) {
-                settings.pageNumber = currentPage + 1; // Nächste Seite
+                settings.pageNumber = currentPage + 1;
                 setSettings($table, settings);
-                handlePaginationChange($table); // Daten neu laden
+                handlePaginationChange($table);
             }
         });
+
+        // "Last"-Button
+        const $lastItem = $('<li></li>', {
+
+            class: `page-item ${currentPage === totalPages ? 'disabled' : ''}`
+        }).appendTo($paginationList);
+
+        $('<a></a>', {
+            'aria-label': 'last',
+            class: 'page-link',
+            href: '#',
+            tabindex: currentPage === totalPages ? '-1' : '',
+            'aria-disabled': currentPage === totalPages ? 'true' : 'false',
+            html: '<i class="bi bi-chevron-double-right"></i>',
+        }).appendTo($lastItem).on('click', function (e) {
+            e.preventDefault();
+            if (currentPage < totalPages) {
+                settings.pageNumber = totalPages;
+                setSettings($table, settings);
+                handlePaginationChange($table);
+            }
+        });
+
+        return $paginationWrapper;
     }
 
     function handlePaginationChange($table) {
@@ -287,16 +443,79 @@
             // Nur Daten von settings.data verwenden
             const totalRows = settings.data.length;
             const $paginationContainer = $table.closest(`.${wrapperClass}`).find('.bs-table-pagination');
-            renderTableWithPagination($table, settings, { rows: settings.data, total: totalRows }, $paginationContainer);
+            renderTableWithPagination($table, settings, {rows: settings.data, total: totalRows}, $paginationContainer);
         }
     }
+
+    function calculateVisiblePages(totalPages, currentPage) {
+        const visiblePages = []; // Array für sichtbare Seiten
+
+        const maxVisible = 8; // Anzahl der maximal sichtbaren Seiten
+        const half = Math.floor(maxVisible / 2);
+
+        let startPage = Math.max(1, currentPage - half);
+        const endPage = Math.min(totalPages, currentPage + half);
+
+        // Füge die sichtbaren Seiten hinzu
+        for (let i = startPage; i <= endPage; i++) {
+            visiblePages.push(i);
+        }
+
+        // Füge "..." hinzu, falls nötig
+        if (startPage > 1) {
+            visiblePages.unshift("...");
+        }
+        if (endPage < totalPages) {
+            visiblePages.push("...");
+        }
+
+        return visiblePages;
+    }
+
+    function calculateVisiblePages(totalPages, currentPage) {
+        const visiblePages = [];
+
+        if (totalPages <= 8) {
+            // Weniger als oder gleich 8 Seiten: alle Seiten anzeigen
+            for (let i = 1; i <= totalPages; i++) {
+                visiblePages.push(i);
+            }
+        } else {
+            visiblePages.push(1); // Erste Seite
+
+            if (currentPage > 4) {
+                visiblePages.push("...");
+            }
+
+            const start = Math.max(2, currentPage - 2);
+            const end = Math.min(totalPages - 1, currentPage + 2);
+
+            for (let i = start; i <= end; i++) {
+                visiblePages.push(i);
+            }
+
+            if (currentPage < totalPages - 3) {
+                visiblePages.push("...");
+            }
+
+            visiblePages.push(totalPages); // Letzte Seite
+        }
+
+        return visiblePages;
+    }
+
+
     function buildTableHeader($table, columns) {
         const settings = getSettings($table);
         if (settings.showHeader === false) {
             return;
         }
+        let tableClasses = '';
+        if(typeof settings.classes === 'object') {
+            tableClasses = settings.classes.thead;
+        }
         if (columns && columns.length) {
-            const $thead = $table.find('thead').empty();
+            const $thead = $table.find('thead').empty().addClass(tableClasses)
             const $tr = $('<tr></tr>').appendTo($thead);
             columns.forEach(column => {
                 const $th = $('<th>', {
@@ -311,8 +530,12 @@
         if (settings.showFooter === false) {
             return;
         }
+        let tableClasses = '';
+        if(typeof settings.classes === 'object') {
+            tableClasses = settings.classes.tfoot;
+        }
         if (columns && columns.length) {
-            const $tfoot = $table.find('tfoot').empty();
+            const $tfoot = $table.find('tfoot').empty().addClass(tableClasses);
             const $tr = $('<tr></tr>').appendTo($tfoot);
             columns.forEach(column => {
                 let value = '';
@@ -327,12 +550,19 @@
     function buildTableBody($table, rows) {
         const settings = getSettings($table);
         if (rows && rows.length) {
-            const $tbody = $table.find('tbody').empty();
+            let tableClasses = '';
+            if(typeof settings.classes === 'object') {
+                tableClasses = settings.classes.tbody;
+            }
+            const $tbody = $table.find('tbody').empty().addClass(tableClasses);
             let trIndex = 0;
             rows.forEach(row => {
                 const $tr = $('<tr>', {
                     'data-index': trIndex,
                 }).appendTo($tbody);
+                if(typeof settings.rowStyle === 'function'){
+                    settings.rowStyle(row, trIndex, $tr);
+                }
                 if (settings.columns && settings.columns.length) {
                     settings.columns.forEach(column => {
                         buildTableBodyTd(column, row, $tr);
@@ -344,7 +574,7 @@
     }
 
     function buildTableBodyTd(column, row, $tr) {
-        if (column.field && row[column.field] !== undefined) {
+        if (column.field) {
             let classList = [];
             if (column.class) {
                 column.class.split(' ').forEach(className => {
@@ -358,17 +588,22 @@
                 classList.push('align-' + column.valign);
             }
 
-            // Hole den Zellenwert (kann variabel sein)
-            let value = row[column.field];
-            if (column.formatter && typeof column.formatter === 'function') {
-                value = column.formatter(value, row, $tr.data('index'));
-            }
 
             // Erstelle die `td`-Zelle mit Klassen und Wert
             const $td = $('<td>', {
                 class: classList.join(' '),
-                html: value, // Variabler Inhalt wird eingefügt
             }).appendTo($tr);
+
+            // Hole den Zellenwert (kann variabel sein)
+            let value = row[column.field] ?? ' - ';
+            if (column.formatter && typeof column.formatter === 'function') {
+                const customValue = column.formatter(value, row, $tr.data('index'), $td);
+                if (typeof customValue === 'string' && customValue.trim() !== '') {
+                    value = customValue;
+                }
+            }
+
+            $td.html(value);
 
             // Wenn `events` definiert ist, registriere diese für die Zelle
             if (column.events) {
@@ -383,13 +618,13 @@
                         // Binde das Event mit Delegation, falls ein Selektor definiert ist
                         $td.on(eventTypes, selector, function (e) {
                             const index = $tr.data('index'); // Hole Zeilenindex
-                            eventHandler(e, row[column.field], row, index);
+                            eventHandler(e, row[column.field]??null, row, index);
                         });
                     } else {
                         // Binde das Event direkt an die Zelle, wenn kein Selektor vorhanden ist
                         $td.on(eventTypes, function (e) {
                             const index = $tr.data('index'); // Hole Zeilenindex
-                            eventHandler(e, row[column.field], row, index);
+                            eventHandler(e, row[column.field] ?? null, row, index);
                         });
                     }
                 }
@@ -407,5 +642,57 @@
             data.settings = settings;
         }
         $table.data('bsTable', data);
+    }
+
+    function events($table) {
+        const wrapper = $table.closest(`.${wrapperClass}`);
+
+        wrapper.on('click', '.bs-table-pagination-container .page-link', function (e) {
+            e.preventDefault();
+
+            const settings = getSettings($table);
+
+            // Hole das angeklickte Pagination-Element
+            const $this = $(this);
+
+            // Ignoriere Klicks auf deaktivierte oder aktive Buttons
+            if ($this.parent().hasClass('disabled') || $this.parent().hasClass('active')) {
+                return;
+            }
+
+            // Verarbeite die verschiedenen Buttons basierend auf der Aktion
+            const action = $this.attr('aria-label') || $this.html().toLowerCase().trim(); // Nutze aria-label oder den Text/HTML
+            const totalPages = Math.ceil(settings.data.length / settings.pageSize); // Berechne die Gesamtanzahl der Seiten (basierend auf data)
+            console.log("Action:", action);
+            // Erste Seite
+            if (action.includes('first')) {
+                settings.pageNumber = 1; // Springt zur ersten Seite
+            }
+            // Letzte Seite
+            else if (action.includes('last')) {
+                settings.pageNumber = totalPages; // Springt zur letzten Seite
+            }
+            // Eine Seite zurück
+            else if (action.includes('previous') || action.includes('left')) {
+                settings.pageNumber = Math.max(1, settings.pageNumber - 1);
+            }
+            // Eine Seite vor
+            else if (action.includes('next') || action.includes('right')) {
+                settings.pageNumber = Math.min(totalPages, settings.pageNumber + 1);
+            }
+            // Spezifische Seitennummer
+            else {
+                const pageNum = parseInt($this.text().trim(), 10);
+                if (!isNaN(pageNum)) {
+                    settings.pageNumber = pageNum;
+                }
+            }
+
+            // Speichere die aktualisierten Einstellungen
+            setSettings($table, settings);
+
+            // Aktualisiere die Tabelle basierend auf der geänderten Seitenzahl
+            handlePaginationChange($table);
+        });
     }
 }(jQuery))

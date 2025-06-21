@@ -1,42 +1,63 @@
-
-
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bootstrap demo</title>
+    <title>$.fn.bsTable</title>
+    <link href="../vendor/twbs/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="../vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<h1>Hello, world!</h1>
-<table id="table"></table>
+<div class="container py-5">
+    <h1>$.fn.bsTable</h1>
+    <table id="table"></table>
+
+</div>
 <script src="../vendor/components/jquery/jquery.min.js"></script>
+<script src="../vendor/webcito/jquery-affix/dist/jquery-affix.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-table.js"></script>
 <script>
     $(document).ready(function () {
         $('#table').bsTable({
-            classes: 'table table-striped table-bordered table-hover',
+            classes: {
+                table: 'table ',
+                // thead: 'table-danger h4 text-uppercase',
+                tbody: 'table-group-divider',
+                tfoot: 'table-warning',
+            },
             showFooter: false,
-            showHeader: false,
-            pageSize: 10,
+            showHeader: true,
+            pageSize: 11,
             url: 'https://jsonplaceholder.typicode.com/posts',
             pagination: true,
+            paginationVAlign: 'both',
             sidePagination: 'client',
+            rowStyle: function (row, index, $tr) {
+                if (index % 2 === 0) {
+                    // $tr.addClass('table-primary');
+                } else {
+                    // $tr.addClass('table-warning');
+                }
+            },
             columns: [
                 {
                     field: 'id',
                     title: 'ID',
                     align: 'center',
                     valign: 'middle',
-                    formatter: function (value, row, index) {
-                        return `<span class="badge bg-primary">${value}</span>`;
+                    formatter: function (value, row, index, $td) {
+                        // if (index % 2 === 0) {
+                        //     $td.addClass('text-bg-primary fs-3');
+                        // } else {
+                        //     $td.addClass('text-bg-warning fs-3');
+                        // }
+                        return value;
                     },
                     events: {
                         'click .badge': function (e, value, row, index) {
                             e.preventDefault();
-                           alert($(e.currentTarget).get(0));
+                            alert($(e.currentTarget).get(0));
                         }
                     }
                 },
@@ -45,8 +66,13 @@
                     field: 'title',
                 },
                 {
+                    class: '',
                     title: 'Name',
                     field: 'body',
+                },
+                {
+                    title: 'Name',
+                    field: 'rofl',
                 }
             ]
         })
