@@ -1,0 +1,17 @@
+{
+  "name": "webcito/bs-table",
+  "description": "description",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "thomas",
+      "email": "email@example.com"
+    }
+  ],
+  "require": {
+    "twbs/bootstrap": "^5",
+    "components/jquery": "^3",
+    "twbs/bootstrap-icons": "^1"
+  }
+}

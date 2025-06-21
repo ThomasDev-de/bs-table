@@ -1,0 +1,57 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bootstrap demo</title>
+    <link href="../vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<h1>Hello, world!</h1>
+<table id="table"></table>
+<script src="../vendor/components/jquery/jquery.min.js"></script>
+<script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../dist/bs-table.js"></script>
+<script>
+    $(document).ready(function () {
+        $('#table').bsTable({
+            classes: 'table table-striped table-bordered table-hover',
+            showFooter: false,
+            showHeader: false,
+            pageSize: 10,
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            pagination: true,
+            sidePagination: 'client',
+            columns: [
+                {
+                    field: 'id',
+                    title: 'ID',
+                    align: 'center',
+                    valign: 'middle',
+                    formatter: function (value, row, index) {
+                        return `<span class="badge bg-primary">${value}</span>`;
+                    },
+                    events: {
+                        'click .badge': function (e, value, row, index) {
+                            e.preventDefault();
+                           alert($(e.currentTarget).get(0));
+                        }
+                    }
+                },
+                {
+                    title: 'Name',
+                    field: 'title',
+                },
+                {
+                    title: 'Name',
+                    field: 'body',
+                }
+            ]
+        })
+    })
+</script>
+</body>
+</html>
+
