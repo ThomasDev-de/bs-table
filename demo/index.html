@@ -19,63 +19,84 @@
 <script src="../dist/bs-table.js"></script>
 <script>
     $(document).ready(function () {
-        $('#table').bsTable({
-            classes: {
-                table: 'table ',
-                // thead: 'table-danger h4 text-uppercase',
-                tbody: 'table-group-divider',
-                tfoot: 'table-warning',
-            },
-            showFooter: false,
-            showHeader: true,
-            pageSize: 11,
-            url: 'https://jsonplaceholder.typicode.com/posts',
-            pagination: true,
-            paginationVAlign: 'both',
-            sidePagination: 'client',
-            rowStyle: function (row, index, $tr) {
-                if (index % 2 === 0) {
-                    // $tr.addClass('table-primary');
-                } else {
-                    // $tr.addClass('table-warning');
-                }
-            },
-            columns: [
-                {
-                    field: 'id',
-                    title: 'ID',
-                    align: 'center',
-                    valign: 'middle',
-                    formatter: function (value, row, index, $td) {
-                        // if (index % 2 === 0) {
-                        //     $td.addClass('text-bg-primary fs-3');
-                        // } else {
-                        //     $td.addClass('text-bg-warning fs-3');
-                        // }
-                        return value;
-                    },
-                    events: {
-                        'click .badge': function (e, value, row, index) {
-                            e.preventDefault();
-                            alert($(e.currentTarget).get(0));
-                        }
+        $.getJSON('data.json', function (data) {
+            $('#table').bsTable({
+                classes: {
+                    table: 'table align-top table-sm',
+                    // thead: 'table-danger h4 text-uppercase',
+                    tbody: 'table-group-divider',
+                    tfoot: 'table-warning',
+                },
+                showFooter: false,
+                showHeader: true,
+                search:true,
+                pageSize: 11,
+                // url: 'data.json',
+                pagination: true,
+                data: data,
+                paginationVAlign: 'both',
+                paginationHAlign: 'end',
+                sidePagination: 'client',
+                // data: [{
+                //     "id": 1,
+                // }],
+                onPostBody: function (data) {
+                    console.log('onPostBody', data);
+                },
+                rowStyle: function (row, index, $tr) {
+                    if (index % 2 === 0) {
+                        // $tr.addClass('table-primary');
+                    } else {
+                        // $tr.addClass('table-warning');
                     }
                 },
-                {
-                    title: 'Name',
-                    field: 'title',
-                },
-                {
-                    class: '',
-                    title: 'Name',
-                    field: 'body',
-                },
-                {
-                    title: 'Name',
-                    field: 'rofl',
-                }
-            ]
+                columns: [
+                    {
+                        field: 'id',
+                        title: 'ID',
+                        formatter: function (value, row, index, $td) {
+                            // if (index % 2 === 0) {
+                            //     $td.addClass('text-bg-primary fs-3');
+                            // } else {
+                            //     $td.addClass('text-bg-warning fs-3');
+                            // }
+                            return value;
+                        },
+                        events: {
+                            'click .badge': function (e, value, row, index) {
+                                e.preventDefault();
+                                alert($(e.currentTarget).get(0));
+                            }
+                        }
+                    },
+                    {
+                        title: 'Name',
+                        field: 'title',
+                    },
+                    {
+                        class: '',
+                        title: 'Name',
+                        field: 'body',
+                    },
+                    {
+                        title: 'Name',
+                        field: 'rofl',
+                    }
+                ]
+            });
+
+            setTimeout(() => {
+                $('#table').bsTable('refresh', {pageNumber: 23, pageSize: 3, silent: true});
+                setTimeout(() => {
+                    $('#table').bsTable('hideLoading');
+                },4000)
+            },5000)
+
+            $('#table').on('post-body.bs.table', function (e, data) {
+                console.log('post-body.bs.table', data);
+            })
         })
+
     })
 </script>
 </body>
