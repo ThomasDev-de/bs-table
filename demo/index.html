@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-bs-theme="light">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,7 +21,8 @@
 <script>
     $(document).ready(function () {
         $.getJSON('data.json', function (data) {
-            $('#table').bsTable({
+            const table = $('#table');
+            table.bsTable({
                 classes: {
                     table: 'table align-top table-sm table-bordered',
                     thead: 'table-dark h4 text-uppercase',
@@ -31,6 +32,8 @@
                 toolbar: '#toolbar_table',
                 showFooter: false,
                 showHeader: true,
+                sortName: 'id',
+                sortOrder: 'desc',
                 search:true,
                 pageSize: 10,
                 // url: 'data.json',
@@ -42,15 +45,30 @@
                 // data: [{
                 //     "id": 1,
                 // }],
-                onPostBody: function (data) {
-                    // console.log('onPostBody', data);
-                },
-                rowStyle: function (row, index, $tr) {
-                    if (index % 2 === 0) {
-                        // $tr.addClass('table-primary');
-                    } else {
-                        // $tr.addClass('table-warning');
-                    }
+                onPostBody: function (rows) {
+                    table.find('table').first().bsTable({
+                        classes: {
+                            table: 'table align-top table-sm table-bordered',
+                            // thead: 'table-secondary',
+                            tfoot: 'table-info',
+                        },
+                        pagination: true,
+                        search:false,
+                        sidePagination: 'client',
+                        paginationVAlign: 'bottom',
+                        pageList: null,
+                        showRefresh: false,
+                        pageSize: 3,
+                        data: data,
+                        columns: [{
+                            sortable: true,
+                            title: 'ID2',
+                            field: 'id',
+                            footerFormatter(dataRow){
+                                return 'Total: '+ dataRow.length;
+                            }
+                        }]
+                    })
                 },
                 columns: [
                     {
@@ -86,9 +104,14 @@
                         field: 'body',
                     },
                     {
+                        class: 'p-0',
                         title: '',
-                        visible:false,
+                        visible:true,
                         field: 'actions',
+                        width: '50%',
+                        formatter: function (value, row, index, $td) {
+                            return '<table></table>';
+                        }
                     }
                 ]
             });
@@ -101,7 +124,7 @@
             //     },4000)
             // },5000)
 
-            $('#table').on('post-body.bs.table', function (e, data) {
+            table.on('post-body.bs.table', function (e, data) {
                 // console.log('post-body.bs.table', data);
             })
         })

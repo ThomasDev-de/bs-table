@@ -15,12 +15,22 @@
             pageList: [10, 25, 50, 100, 200, 'All'],
             sortName: null,
             sortOrder: 'asc',
+            multipleSort: [],
             showRefresh: true,
             showHeader: true,
             showFooter: true,
             url: null,
             data: null,
             columns: [],
+            icons: {
+                sortAsc: 'bi bi-caret-down-fill',
+                sortDesc: 'bi bi-caret-up-fill',
+                sortNone: 'bi bi-caret-down',
+                refresh: 'bi bi-arrow-clockwise',
+                search: 'bi bi-search',
+                paginationNext: 'bi bi-chevron-right',
+                paginationprev: 'bi bi-chevron-left',
+            },
             rowStyle(row, index, $tr) {
             },
             queryParams(params) {
@@ -66,14 +76,29 @@
         const $table = $(this);
         if (!$table.data('bsTable')) {
             const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
+            const settings = $.extend(true, {}, $.bsTable.defaults, $table.data() || {}, options);
+            if (!settings.columns || !Array.isArray(settings.columns)) {
+                settings.columns = [];
+            }
+            const sortArray = [];
+            settings.columns.forEach(column => {
+                if (column.field && column.sortable === true) {
+                    const selected = column.field === settings.sortName;
+                    settings.multipleSort.push({
+                        selected: selected,
+                        field: column.field,
+                        order: selected ? settings.sortOrder ?? 'asc' : ''
+                    })
+                }
+            })
             const bsTable = {
-                settings: $.extend(true, {}, $.bsTable.defaults, $table.data() || {}, options),
+                settings: settings,
             };
             $table.data('bsTable', bsTable);
-            $table.data('sort', []);
             buildTable($table);
             events($table);
         }
+
         if (typeof optionsOrMethod === 'string') {
             switch (optionsOrMethod) {
                 case 'showLoading':
@@ -227,10 +252,10 @@
 
                 const totalRows = filteredData.length;
 
-                if (pageSize === 0) {
+                if (pageSize === 0 || settings.pagination === false) {
                     // Alle Daten zurückgeben (kein Slice bei pageSize = 0)
                     if (settings.debug) {
-                        console.log("Alle Daten für pageSize = 0 zurückgeben:", totalRows, "Datensätze."); // DEBUG
+                        console.log("Alle Daten für pageSize = 0 oder pagination = false zurückgeben:", totalRows, "Datensätze."); // DEBUG
                     }
                     $table.data('response', {rows: filteredData, total: totalRows});
                     if (settings.debug) {
@@ -315,20 +340,33 @@
     function buildTable($table) {
         $table.empty(); // Tabelle leeren
         const settings = getSettings($table);
-
         // Erstelle den Haupt-Wrapper
-        const $wrapper = $('<div class="' + wrapperClass + ' position-relative"></div>').insertAfter($table);
+        const $wrapper = $('<div>', {
+            class: wrapperClass + ' position-relative',
+            id: generateRandomWrapperId(),
+        }).insertAfter($table);
 
-        let tableClasses = '';
+        // Setze CSS-Klassen auf die Tabelle
+        const tableClasses = [];
         if (typeof settings.classes === 'string') {
-            tableClasses = settings.classes;
-        } else if (typeof settings.classes === 'object') {
-            tableClasses = settings.classes.table;
+            settings.classes.split(' ').forEach(className => {
+                const name = className.trim();
+                if (! isValueEmpty(name)) {
+                    tableClasses.push(className);
+                }
+            });
+        } else if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('table')) {
+            settings.classes.table.split(' ').forEach(className => {
+                const name = className.trim();
+                if (! isValueEmpty(name)) {
+                    tableClasses.push(className);
+                }
+            });
         }
+        $table.addClass(tableClasses.join(' '));
 
         // Erstelle den scrollbaren `table-responsive` Bereich
-        const $tableResponsiveWrapper = $('<div class="position-relative- "></div>').appendTo($wrapper);
-        $table.appendTo($tableResponsiveWrapper);
+        $table.appendTo($wrapper);
 
         // **Neuer Table-Top-Container inkl. Pagination und Suche**
         const $tableTopContainer = $('<div class="mb-3 d-flex flex-column gap-2"></div>').prependTo($wrapper);
@@ -365,24 +403,25 @@
         if (settings.search === true) {
             const $searchInputGroup = $(`
     <div class="input-group">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <span class="input-group-text"><i class="${settings.icons.search}"></i></span>
         <input type="search" class="form-control ${inputSearchClass}" placeholder="...">
     </div>
 `);
             $searchInputGroup.appendTo($searchWrapper);
         }
 
+        const $btnContainer = $('<div class="d-flex gap-1 bs-table-buttons"></div>').appendTo($tableTopContainerFirstRow);
         if (settings.showRefresh) {
             const $refreshButton = $(`<button>`, {
                 class: 'btn btn-secondary',
-                html: '<i class="bi bi-arrow-repeat"></i>',
+                html: `<i class="${settings.icons.refresh}"></i>`,
                 title: 'Refresh',
                 'data-role': 'refresh',
-            }).appendTo($tableTopContainerFirstRow);
+            }).appendTo($btnContainer);
         }
 
         // Grundklassen an die Tabelle anwenden
-        $table.addClass(tableClasses);
+
         $('<thead></thead>').appendTo($table);
         $('<tbody></tbody>').appendTo($table);
         $('<tfoot></tfoot>').appendTo($table);
@@ -455,9 +494,20 @@
 
         const $topPaginationContainer = getPaginationContainer($table, true).empty();
         const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
-        const $paginationDetails = getPaginationDetailsContainer($table).empty();
-        const $paginationDetailHtml = createPaginationDetails($table, totalRows);
-        $paginationDetails.append($paginationDetailHtml.clone());
+
+        // const $paginationDetailHtml = createPaginationDetails($table, totalRows);
+        const $btnContainer = wrapper.find('.bs-table-buttons:first');
+        if (isValueEmpty(settings.pageList)) {
+            $btnContainer.find('[data-role="tablePaginationPageSize"]:first').remove();
+        } else {
+            const $pageListDropdown = buildPagelistDropdown($table, totalRows);
+            if ($btnContainer.find('[data-role="tablePaginationPageSize"]:first').length > 0) {
+                $btnContainer.find('[data-role="tablePaginationPageSize"]:first').replaceWith($pageListDropdown);
+            } else {
+                $pageListDropdown.prependTo($btnContainer);
+            }
+        }
+
         if (settings.pagination && pageSize !== 0) {
             const $wrapper = getWrapper($table);
 
@@ -516,6 +566,60 @@
         });
 
         // Dropdown-Optionen hinzufügen
+        // settings.pageList
+        //     .filter(page => page === 'All' || page < totalRows)
+        //     .forEach(page => {
+        //         const value = page === 'All' ? 0 : page;
+        //         const isAll = value === 0;
+        //         const isActive = (isAll && pageSize === 0) || page === pageSize;
+        //         const text = isAll ? 'All' : page;
+        //         const $dropdownItem = $('<li>').append(
+        //             $('<a>', {
+        //                 class: `dropdown-item ${isActive ? 'active' : ''}`,
+        //                 href: '#',
+        //                 'data-page': value
+        //             }).text(text)
+        //         );
+        //         $dropdownMenu.append($dropdownItem);
+        //     });
+
+        // Text für "rows per page"
+        const $rowsPerPageText = $('<span>').text('');
+
+        // Baue die Reihenfolge zusammen: Dropdown vor "rows per page"
+        $paginationDetailWrapper.append($dropdownToggle, $dropdownMenu, $paginationText);
+
+        return $paginationDetailWrapper;
+    }
+
+    function buildPagelistDropdown($table, totalRows) {
+        const settings = getSettings($table);
+        // Berechnung der Anzeige-Daten (Start- und Endzeilen)
+        const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
+        const currentPage = settings.pageNumber || 1;
+        const startRow = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+        const endRow = Math.min(totalRows, currentPage * pageSize);
+
+        // Haupt-Wrapper (d-flex für Flexbox)
+        const $dropdownWrapper = $('<div>', {
+            'class': 'dropdown',
+            'data-role': 'tablePaginationPageSize'
+        });
+        // Dropdown für die Zeilenanzahl pro Seite
+        const $dropdownToggle = $('<button>', {
+            'class': 'btn btn-secondary dropdown-toggle me-1',
+            'type': 'button',
+            'id': 'dropdownPaginationPageSize',
+            'data-bs-toggle': 'dropdown',
+            'aria-expanded': 'false'
+        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-list-columns-reverse"></i>');
+
+        const $dropdownMenu = $('<ul>', {
+            'class': 'dropdown-menu',
+            'aria-labelledby': 'dropdownPaginationPageSize'
+        });
+
+        // Dropdown-Optionen hinzufügen
         settings.pageList
             .filter(page => page === 'All' || page < totalRows)
             .forEach(page => {
@@ -533,13 +637,8 @@
                 $dropdownMenu.append($dropdownItem);
             });
 
-        // Text für "rows per page"
-        const $rowsPerPageText = $('<span>').text('');
-
-        // Baue die Reihenfolge zusammen: Dropdown vor "rows per page"
-        $paginationDetailWrapper.append($dropdownToggle, $dropdownMenu, $paginationText);
-
-        return $paginationDetailWrapper;
+        $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
+        return $dropdownWrapper;
     }
 
     function createPagination($table, totalRows) {
@@ -563,12 +662,11 @@
         }).appendTo($paginationList);
 
         $('<a></a>', {
-
             class: 'page-link',
             href: '#',
             tabindex: currentPage === 1 ? '-1' : '',
             'aria-disabled': currentPage === 1 ? 'true' : 'false',
-            html: '<i class="bi bi-chevron-left"></i>',
+            html: `<i class="${settings.icons.paginationprev}"></i>`,
         }).appendTo($prevItem).on('click', function (e) {
             e.preventDefault();
             if (currentPage > 1) {
@@ -623,7 +721,7 @@
             href: '#',
             tabindex: currentPage === totalPages ? '-1' : '',
             'aria-disabled': currentPage === totalPages ? 'true' : 'false',
-            html: '<i class="bi bi-chevron-right"></i>',
+            html: `<i class="${settings.icons.paginationNext}"></i>`,
         }).appendTo($nextItem).on('click', function (e) {
             e.preventDefault();
             if (currentPage < totalPages) {
@@ -676,15 +774,20 @@
 
     function buildTableHeader($table, columns) {
         const settings = getSettings($table);
+        const headerClasses = [];
         if (settings.showHeader === false) {
-            return;
+            headerClasses.push('d-none')
         }
-        let tableClasses = '';
-        if (typeof settings.classes === 'object') {
-            tableClasses = settings.classes.thead;
+        if (typeof settings.classes === 'object' && typeof settings.classes.thead === 'object') {
+            settings.classes.thead.split(' ').forEach(className => {
+                const name = className.trim();
+                if (!isValueEmpty(name)) {
+                    headerClasses.push(className);
+                }
+            });
         }
         if (columns && columns.length) {
-            const $thead = $table.find('thead').empty().addClass(tableClasses)
+            const $thead = $table.find('thead').empty().addClass(headerClasses.join(' '))
             const $tr = $('<tr></tr>').appendTo($thead);
             columns.forEach(column => {
                 if (column.visible === false) {
@@ -701,6 +804,10 @@
                 const $th = $('<th>', {
                     html: html.join('')
                 }).appendTo($tr);
+
+                if (column.width) {
+                    $th.css('width', column.width);
+                }
                 $th.data('sort', {
                     sortName: column.field,
                     sortOrder: settings.sortOrder ?? '',
@@ -720,12 +827,13 @@
             tableClasses = settings.classes.tfoot;
         }
         if (columns && columns.length) {
-            if (column.visible === false) {
-                return;
-            }
+
             const $tfoot = $table.find('tfoot').empty().addClass(tableClasses);
             const $tr = $('<tr></tr>').appendTo($tfoot);
             columns.forEach(column => {
+                if (column.visible === false) {
+                    return;
+                }
                 let value = '';
                 if (typeof column.footerFormatter === 'function') {
                     value = column.footerFormatter(data);
@@ -890,6 +998,22 @@
         return $searchInput.length > 0 ? $searchInput : $(); // Fallback: leeres jQuery-Objekt, falls nichts gefunden
     }
 
+    function generateRandomWrapperId() {
+        const prefix = "bs_table_wrapper_";
+
+        const guid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (char) {
+            const random = Math.random() * 16 | 0;
+            const value = char === 'x' ? random : (random & 0x3 | 0x8);
+            return value.toString(16);
+        });
+
+        // Falls Unterstriche statt Minuse gewünscht sind
+        const modifiedGuid = guid.replace(/-/g, '_');
+
+        return prefix + modifiedGuid;
+    }
+
+
     function getOverlay($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
 
@@ -985,7 +1109,10 @@
             })
             .on('click', `button[data-role="refresh"]`, function (e) {
                 e.preventDefault();
-                refresh($table)
+                const btn = $(e.currentTarget);
+                if (getClosestWrapper(btn)[0] === wrapper[0]) {
+                    refresh($table)
+                }
             })
             .on('input', `.${inputSearchClass}`, function (e) {
                 const searchField = $(e.currentTarget);
