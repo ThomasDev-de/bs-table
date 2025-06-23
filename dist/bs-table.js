@@ -495,12 +495,12 @@
 
         // Textanzeige: "Showing x to y of total rows"
         const $paginationText = $('<span>', {
-            'class': 'me-2'
-        }).html(`<div class="border p-1 rounded text-bg-light">${startRow} - ${endRow} / ${totalRows}</div>`);
+            'class': 'mx-2'
+        }).html(`<div class="badge text-bg-secondary">${startRow} - ${endRow} / ${totalRows}</div>`);
 
         // Dropdown für die Zeilenanzahl pro Seite
         const $dropdownToggle = $('<button>', {
-            'class': 'btn btn-secondary btn-sm dropdown-toggle me-1',
+            'class': 'btn btn-secondary dropdown-toggle me-1',
             'type': 'button',
             'id': 'dropdownPaginationPageSize',
             'data-bs-toggle': 'dropdown',
@@ -534,7 +534,7 @@
         const $rowsPerPageText = $('<span>').text('');
 
         // Baue die Reihenfolge zusammen: Dropdown vor "rows per page"
-        $paginationDetailWrapper.append($paginationText, $dropdownToggle, $dropdownMenu, $rowsPerPageText);
+        $paginationDetailWrapper.append($dropdownToggle, $dropdownMenu, $paginationText);
 
         return $paginationDetailWrapper;
     }
