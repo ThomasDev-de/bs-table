@@ -37,7 +37,8 @@
             },
             formatNoMatches() {
                 return `<i class="bi bi-x-lg fs-3"></i>`
-            }
+            },
+            debug: true
         }
     };
 
@@ -46,6 +47,7 @@
     const wrapperOverlayClass = 'bs-table-wrapper-overlay';
     const wrapperSearchClass = 'bs-table-wrapper-search';
     const wrapperPaginationClass = 'bs-table-pagination-container';
+    const wrapperPaginationDetailsClass = 'bs-table-pagination-details';
     const inputSearchClass = 'bs-table-search-input';
     const namespace = '.bs.table';
 
@@ -95,152 +97,215 @@
         let url = settings.url;
         let update = false;
 
+        // Opt-Parameter verarbeiten
         if (options && typeof options === 'object') {
-            if (options.hasOwnProperty('silent')) {
-                silent = options.silent;
-            }
-            if (options.hasOwnProperty('pageNumber')) {
+            if (options.silent) silent = options.silent;
+            if (options.pageNumber) {
                 pageNumber = Math.max(1, options.pageNumber);
                 update = true;
             }
-            if (options.hasOwnProperty('pageSize')) {
+            if (options.pageSize) {
                 pageSize = options.pageSize;
                 update = true;
             }
-            if (options.hasOwnProperty('url')) {
+            if (options.url) {
                 url = options.url;
                 update = true;
             }
         }
 
+        // PageSize = 0 -> Alle Daten darstellen
+        if (pageSize === 0) {
+            pageNumber = 1; // Setze pageSize auf eine einzige Seite mit allen Daten
+        }
+
+        // Gesamteinstellungen aktualisieren
         if (update) {
             settings.pageNumber = pageNumber;
             settings.pageSize = pageSize;
             setSettings($table, settings);
         }
 
-        // Daten abrufen
-        fetchData($table, url, silent).then(response => {
-            const totalRows = response.total || 0; // Gesamte Anzahl der Zeilen (z. B. aus der API)
+        if (!silent) {
+            showLoading($table);
+        }
 
-            // Maximale Anzahl der Seiten basierend auf totalRows und pageSize
-            const maxPages = Math.ceil(totalRows / pageSize);
-
-            // Überprüfen, ob die aktuelle pageNumber die maxPages übersteigt
-            if (pageNumber > maxPages) {
-                console.warn(`Page number ${pageNumber} exceeds the maximum number of pages (${maxPages}). Resetting to last page.`);
-                pageNumber = maxPages; // Auf die letzte Seite setzen
-                settings.pageNumber = pageNumber;
-                setSettings($table, settings);
-            }
-
-            // Tabelle rendern oder aktualisieren
-            renderTable($table, silent);
-        });
+        fetchData($table)
+            .then(() => {
+                renderTable($table, silent); // Tabelle aktualisieren
+            })
+            .catch(error => {
+                console.error("Fehler beim Abrufen der Daten:", error);
+            })
+            .finally(() => {
+                hideLoading($table);
+            })
     }
 
     function fetchData($table) {
+        const settings = getSettings($table);
+        if (settings.debug) {
+            console.groupCollapsed("fetchData");
+            console.log("Starte fetchData für Tabelle:", $table); // DEBUG
+        }
         return new Promise((resolve, reject) => {
-            const settings = getSettings($table);
-            const wrapper = getWrapper($table);
+            if (settings.debug) {
+                console.log("Einstellungen geladen:", settings); // DEBUG
+            }
             if (!settings.url && !(settings.data && Array.isArray(settings.data))) {
-                reject(new Error("Es wurde weder eine URL noch lokale Daten konfiguriert."));
+                if (settings.debug) {
+                    console.error("Fehler: Weder eine API-URL noch lokale Daten konfiguriert."); // DEBUG
+                }
+                reject(new Error("Neither a URL nor local data were provided."));
                 return;
             }
-
-            const searchInput = getSearchInput($table);
-            if (searchInput.length) {
-                searchInput.removeClass('is-invalid is-valid');
-            }
-            let searchInputValue = null;
-            let isSearching = false;
 
             let params = {};
-            if (settings.pagination) {
-                params.limit = settings.pageSize; // Anzahl der Elemente pro Seite
-                params.offset = (settings.pageNumber - 1) * settings.pageSize; // Offset basierend auf aktueller Seite
-            }
-            if (settings.search) {
-                searchInputValue = searchInput.val().trim();
-                isSearching = !isValueEmpty(searchInputValue);
-                params.search = !isSearching ? null : searchInputValue;
+
+            // Pagination prüfen und anpassen
+            const pageNumber = settings.pageNumber > 0 ? settings.pageNumber : 1;
+            const pageSize = settings.pageSize ?? 10; // Setze Standardwert, falls pageSize nicht definiert ist
+
+            if (pageSize === 0) {
+                if (settings.debug) {
+                    console.log("Besonderer Fall: pageSize = 0 (Alle Datensätze anzeigen).");
+                }
+                params.limit = null; // Keine Begrenzung
+                params.offset = 0;   // Keine Verschiebung
+            } else {
+                const offset = (pageNumber - 1) * pageSize;
+                params.limit = pageSize;
+                params.offset = offset;
+                if (settings.debug) {
+                    console.log("Pagination-Parameter berechnet:", params); // DEBUG
+                }
             }
 
+            // Suchkriterien verarbeiten
+            const searchInput = getSearchInput($table);
+            if (settings.search && searchInput.length) {
+                const searchValue = searchInput.val()?.trim() || null;
+                params.search = searchValue && !isValueEmpty(searchValue) ? searchValue : null;
+                if (settings.debug) {
+                    console.log("Suchkriterien verarbeitet:", params.search); // DEBUG
+                }
+            }
+
+            // Zusätzliche Query-Parameter vom User
             if (typeof settings.queryParams === "function") {
-                params = settings.queryParams(params); // Zusätzliche Parameter hinzufügen
+                params = settings.queryParams(params);
+                if (settings.debug) {
+                    console.log("Zusätzliche Query-Parameter:", params); // DEBUG
+                }
             }
 
-            // Lokale Daten verarbeiten
-            if (Array.isArray(settings.data) && settings.data.length > 0) {
-                const total = settings.data.length;
-                const start = params.offset || 0;
-                const end = start + (params.limit || total);
-
-                // Wenn searchValue leer ist, alle Daten verwenden, sonst filtern
-                const filteredData = !isValueEmpty(searchInputValue)
-                    ? settings.data.filter(row =>
-                        Object.values(row).some(value =>
-                            value.toString().toLowerCase().includes(searchInputValue.toLowerCase())
-                        )
-                    )
-                    : settings.data;
-
-                // Gesamtanzahl der gefilterten Daten
-                const filteredTotal = filteredData.length;
-                if (isSearching) {
-                    searchInput.addClass(filteredTotal ? 'is-valid' : 'is-invalid');
+            // Verarbeitung von lokalen Daten
+            if (Array.isArray(settings.data)) {
+                if (settings.debug) {
+                    console.log("Lokale Daten erkannt. Verarbeite lokale Daten...");
                 }
 
-                // Speichert die gefilterten Daten im jQuery-Objekt `$table`
-                $table.data('response', {rows: filteredData, total: filteredTotal});
+                let filteredData = settings.data;
 
-                resolve({
-                    rows: filteredData.slice(start, end), // Aktuelle Seite der ausgewählten Daten
-                    total: filteredTotal,
-                });
+                // Suche anwenden, falls relevant
+                if (params.search) {
+                    if (settings.debug) {
+                        console.log("Suchfilter wird angewendet: ", params.search); // DEBUG
+                    }
+                    filteredData = filteredData.filter(row =>
+                        Object.values(row).some(value =>
+                            value && value.toString().toLowerCase().includes(params.search.toLowerCase())
+                        )
+                    );
+                    if (settings.debug) {
+                        console.log(`Gefilterte Datenanzahl nach Suchkriterien (${params.search}):`, filteredData.length); // DEBUG
+                    }
+                }
 
+                const totalRows = filteredData.length;
+
+                if (pageSize === 0) {
+                    // Alle Daten zurückgeben (kein Slice bei pageSize = 0)
+                    if (settings.debug) {
+                        console.log("Alle Daten für pageSize = 0 zurückgeben:", totalRows, "Datensätze."); // DEBUG
+                    }
+                    $table.data('response', {rows: filteredData, total: totalRows});
+                    if (settings.debug) {
+                        console.groupEnd();
+                    }
+                    resolve();
+                    return;
+                }
+
+                // Pagination-Parameter Berechnung
+                const offset = params.offset || 0;
+                const start = Math.min(totalRows, offset); // Start-Position
+                const end = Math.min(totalRows, start + pageSize); // End-Position
+                const rowsToRender = end - start;
+                if (settings.debug) {
+                    console.log(`Pagination-Details: Offset=${offset}, Start=${start}, End=${end}, Rows to Render=${rowsToRender}`); // DEBUG
+                }
+
+                if (rowsToRender <= 0) {
+                    if (settings.debug) {
+                        console.warn("Pagination-Ergebnis ist leer. Es gibt keine Daten für diese Seite."); // DEBUG
+                    }
+                    $table.data('response', {rows: [], total: totalRows});
+                    if (settings.debug) {
+                        console.groupEnd();
+                    }
+                    resolve();
+                    return;
+                }
+
+                // Daten für die aktuelle Seite schneiden
+                const slicedData = filteredData.slice(start, end);
+                if (settings.debug) {
+                    console.log("Daten für aktuelle Seite (Slice-Ergebnis):", slicedData); // DEBUG
+                }
+
+                $table.data('response', {rows: slicedData, total: totalRows});
+                if (settings.debug) {
+                    console.groupEnd();
+                }
+                resolve();
                 return;
             }
 
-            // Daten aus einer URL abrufen
-            if (typeof settings.url === "string") {
+            // Verarbeitung von serverseitigen Daten (falls konfiguriert)
+            if (settings.url) {
+                if (settings.debug) {
+                    console.log("Hole Daten vom Server:", settings.url, "mit Parametern:", params); // DEBUG
+                }
                 $.ajax({
                     url: settings.url,
                     method: "GET",
                     data: params,
-                    dataType: "json",
+                    dataType: "json"
                 })
-                    .done((response) => {
-                        let processedData;
-                        // Prüfen, ob die API ein Array oder ein Objekt zurückgibt
-                        if (Array.isArray(response)) {
-                            processedData = {
-                                rows: response,
-                                total: response.length,
-                            };
-                        } else {
-                            processedData = {
-                                rows: response.rows || [],
-                                total: response.total || 0,
-                            };
+                    .done(response => {
+                        const processedResponse = Array.isArray(response)
+                            ? {rows: response, total: response.length}
+                            : {rows: response.rows || [], total: response.total || 0};
+
+                        if (settings.debug) {
+                            console.log("API-Antwort erhalten:", processedResponse); // DEBUG
                         }
 
-                        // Speichert den gesamten `response` im jQuery-Objekt `$table`
-                        $table.data('response', processedData);
-
-                        if (isSearching) {
-                            searchInput.addClass(processedData.total ? 'is-valid' : 'is-invalid');
+                        $table.data('response', processedResponse);
+                        if (settings.debug) {
+                            console.groupEnd();
                         }
-
-                        resolve(processedData); // Liefert die aktuellen Daten zurück
+                        resolve();
                     })
-                    .fail((xhr, textStatus, errorThrown) => {
-                        reject(new Error(`Fehler: ${textStatus}, ${errorThrown}`));
+                    .fail((xhr, status, error) => {
+                        if (settings.debug) {
+                            console.error("Fehler bei der API-Abfrage:", status, error); // DEBUG
+                            console.groupEnd();
+                        }
+                        reject(new Error(`Fehler bei der API-Abfrage: ${status}, ${error}`));
                     });
-                return;
             }
-
-            reject(new Error("Ungültige Konfiguration: Weder 'url' noch 'data' gefunden."));
         });
     }
 
@@ -259,7 +324,7 @@
         }
 
         // Erstelle den scrollbaren `table-responsive` Bereich
-        const $tableResponsiveWrapper = $('<div class="position-relative"></div>').appendTo($wrapper);
+        const $tableResponsiveWrapper = $('<div class="position-relative- "></div>').appendTo($wrapper);
         $table.appendTo($tableResponsiveWrapper);
 
         // **Neuer Table-Top-Container inkl. Pagination und Suche**
@@ -268,7 +333,7 @@
         const $tableTopContainerSecondRow = $('<div class="d-flex justify-content-between gap-2"></div>').appendTo($tableTopContainer);
         // Falls ein Toolbar-Element definiert ist
         if (settings.toolbar && $(settings.toolbar).length > 0) {
-            $(settings.toolbar).prependTo($tableTopContainerFirstRow);
+            $(settings.toolbar).addClass('me-auto').prependTo($tableTopContainerFirstRow);
         } else {
             $('<div>').appendTo($tableTopContainerFirstRow);
         }
@@ -277,7 +342,9 @@
         // Such-Wrapper erstellen (links)
         const $searchWrapper = $('<div class="' + wrapperSearchClass + '"></div>').appendTo($tableTopContainerFirstRow);
 
-        const $locationWrapper = $('<div>').prependTo($tableTopContainerSecondRow)
+        const $locationWrapper = $('<div>', {
+            class: wrapperPaginationDetailsClass,
+        }).prependTo($tableTopContainerSecondRow)
 
         // Pagination-Container oben einfügen (rechts)
 
@@ -341,7 +408,7 @@
 
         // Overlay generieren
         const $overlay = $('<div>', {
-            class: wrapperOverlayClass + ' position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center opacity-75 bg-body',
+            class: wrapperOverlayClass + ' position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-start pt-5 opacity-75 bg-body',
             css: {
                 zIndex: 4,
             }
@@ -354,18 +421,28 @@
 </div>`).appendTo($overlay);
     }
 
-    function renderTable($table, silent = false) {
+    function renderTable($table) {
         const settings = getSettings($table);
+        if (settings.debug) {
+            console.groupCollapsed("Render Table");
+        }
+        const wrapper = getWrapper($table);
         const response = $table.data('response') || {rows: [], total: 0};
+        if (settings.debug) {
+            console.log("Response:", response);
+        }
         const totalRows = response.total || (response.rows ? response.rows.length : 0);
         const pageSize = settings.pageSize;
         const pageNumber = settings.pageNumber;
         let currentPageData = response.rows;
-        if (settings.sidePagination === 'client') {
-            const start = (pageNumber - 1) * pageSize;
-            const end = start + pageSize;
-            currentPageData = response.rows.slice(start, end);
+        if (settings.debug) {
+            console.log("Total Rows:", totalRows);
+            console.log("Page Size:", pageSize);
+            console.log("Page Number:", pageNumber);
+            console.log("Rows to Render:", currentPageData.length, currentPageData);
+            console.groupEnd();
         }
+
 
         if (settings.columns && settings.columns.length) {
             buildTableHeader($table, settings.columns);
@@ -375,13 +452,17 @@
 
         const $topPaginationContainer = getPaginationContainer($table, true).empty();
         const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
-
-        if (settings.pagination && currentPageData.length) {
+        const $paginationDetails = getPaginationDetailsContainer($table).empty();
+        const $paginationDetailHtml = createPaginationDetails($table, totalRows);
+        $paginationDetails.append($paginationDetailHtml.clone());
+        if (settings.pagination && pageSize !== 0) {
             const $wrapper = getWrapper($table);
 
             const $paginationHtml = createPagination($table, totalRows);
 
+
             if (settings.paginationVAlign === 'top' || settings.paginationVAlign === 'both') {
+                // $topPaginationContainer.append($paginationDetailHtml);
                 $topPaginationContainer.append($paginationHtml.clone());
             }
 
@@ -395,7 +476,67 @@
         if (typeof settings.onPostBody === 'function') {
             settings.onPostBody(currentPageData);
         }
-        hideLoading($table);
+    }
+
+    function createPaginationDetails($table, totalRows) {
+        const settings = getSettings($table);
+
+        // Berechnung der Anzeige-Daten (Start- und Endzeilen)
+        const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
+        const currentPage = settings.pageNumber || 1;
+        const startRow = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+        const endRow = Math.min(totalRows, currentPage * pageSize);
+
+        // Haupt-Wrapper (d-flex für Flexbox)
+        const $paginationDetailWrapper = $('<div>', {
+            'class': 'd-flex align-items-center',
+            'data-role': 'tablePaginationPageSize'
+        });
+
+        // Textanzeige: "Showing x to y of total rows"
+        const $paginationText = $('<span>', {
+            'class': 'me-2'
+        }).html(`<div class="border p-1 rounded text-bg-light">${startRow} - ${endRow} / ${totalRows}</div>`);
+
+        // Dropdown für die Zeilenanzahl pro Seite
+        const $dropdownToggle = $('<button>', {
+            'class': 'btn btn-secondary btn-sm dropdown-toggle me-1',
+            'type': 'button',
+            'id': 'dropdownPaginationPageSize',
+            'data-bs-toggle': 'dropdown',
+            'aria-expanded': 'false'
+        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-list-columns-reverse"></i>');
+
+        const $dropdownMenu = $('<ul>', {
+            'class': 'dropdown-menu',
+            'aria-labelledby': 'dropdownPaginationPageSize'
+        });
+
+        // Dropdown-Optionen hinzufügen
+        settings.pageList
+            .filter(page => page === 'All' || page < totalRows)
+            .forEach(page => {
+            const value = page === 'All' ? 0 : page;
+            const isAll = value === 0;
+            const isActive = (isAll && pageSize === 0) || page === pageSize;
+            const text = isAll ? 'All' : page;
+            const $dropdownItem = $('<li>').append(
+                $('<a>', {
+                    class: `dropdown-item ${isActive ? 'active' : ''}`,
+                    href: '#',
+                    'data-page': value
+                }).text(text)
+            );
+            $dropdownMenu.append($dropdownItem);
+        });
+
+        // Text für "rows per page"
+        const $rowsPerPageText = $('<span>').text('');
+
+        // Baue die Reihenfolge zusammen: Dropdown vor "rows per page"
+        $paginationDetailWrapper.append($paginationText, $dropdownToggle, $dropdownMenu, $rowsPerPageText);
+
+        return $paginationDetailWrapper;
     }
 
     function createPagination($table, totalRows) {
@@ -430,7 +571,7 @@
             if (currentPage > 1) {
                 settings.pageNumber = currentPage - 1;
                 setSettings($table, settings);
-                handlePaginationChange($table);
+                refresh($table);
             }
         });
 
@@ -461,7 +602,7 @@
                     if (page !== currentPage) {
                         settings.pageNumber = page;
                         setSettings($table, settings);
-                        handlePaginationChange($table);
+                        refresh($table);
                     }
                 });
             }
@@ -485,47 +626,12 @@
             if (currentPage < totalPages) {
                 settings.pageNumber = currentPage + 1;
                 setSettings($table, settings);
-                handlePaginationChange($table);
+                refresh($table);
             }
         });
 
 
         return $paginationWrapper;
-    }
-
-    function handlePaginationChange($table) {
-        const settings = getSettings($table);
-        const wrapper = getWrapper($table);
-        if (settings.sidePagination === 'server') {
-            refresh($table);
-        } else if (settings.sidePagination === 'client') {
-            renderTable($table);
-        }
-    }
-
-    function calculateVisiblePages(totalPages, currentPage) {
-        const visiblePages = []; // Array für sichtbare Seiten
-
-        const maxVisible = 8; // Anzahl der maximal sichtbaren Seiten
-        const half = Math.floor(maxVisible / 2);
-
-        let startPage = Math.max(1, currentPage - half);
-        const endPage = Math.min(totalPages, currentPage + half);
-
-        // Füge die sichtbaren Seiten hinzu
-        for (let i = startPage; i <= endPage; i++) {
-            visiblePages.push(i);
-        }
-
-        // Füge "..." hinzu, falls nötig
-        if (startPage > 1) {
-            visiblePages.unshift("...");
-        }
-        if (endPage < totalPages) {
-            visiblePages.push("...");
-        }
-
-        return visiblePages;
     }
 
     function calculateVisiblePages(totalPages, currentPage) {
@@ -534,37 +640,36 @@
         // Fall 1: Aktuelle Seite ist in den ersten 4 Seiten
         if (currentPage <= 4) {
             for (let i = 1; i <= Math.min(5, totalPages); i++) {
-                visiblePages.push(i);
+                visiblePages.push(i); // Zeige die ersten 5 Seiten
             }
             if (totalPages > 5) {
-                visiblePages.push("...");
-                visiblePages.push(totalPages);
+                visiblePages.push("..."); // Platzhalter zu den restlichen Seiten
+                visiblePages.push(totalPages); // Zeige die letzte Seite
             }
         }
         // Fall 2: Aktuelle Seite ist in den letzten 4 Seiten
         else if (currentPage >= totalPages - 3) {
-            visiblePages.push(1);
+            visiblePages.push(1); // Zeige die erste Seite
             if (totalPages > 5) {
-                visiblePages.push("...");
+                visiblePages.push("..."); // Platzhalter zu den vorherigen Seiten
             }
             for (let i = Math.max(totalPages - 4, 1); i <= totalPages; i++) {
-                visiblePages.push(i);
+                visiblePages.push(i); // Zeige die letzten 5 Seiten
             }
         }
         // Fall 3: Aktuelle Seite ist irgendwo in der Mitte
         else {
-            visiblePages.push(1);
-            visiblePages.push("...");
-            visiblePages.push(currentPage - 1); // Linke Nachbarseite
-            visiblePages.push(currentPage); // Aktuelle Seite
-            visiblePages.push(currentPage + 1); // Rechte Nachbarseite
-            visiblePages.push("...");
-            visiblePages.push(totalPages);
+            visiblePages.push(1); // Zeige die erste Seite
+            visiblePages.push("..."); // Platzhalter zu den vorherigen Seiten
+            visiblePages.push(currentPage - 1); // Eine Seite links von der aktuellen
+            visiblePages.push(currentPage); // Die aktuelle Seite
+            visiblePages.push(currentPage + 1); // Eine Seite rechts von der aktuellen
+            visiblePages.push("..."); // Platzhalter zu den nächsten Seiten
+            visiblePages.push(totalPages); // Zeige die letzte Seite
         }
 
         return visiblePages;
     }
-
 
     function buildTableHeader($table, columns) {
         const settings = getSettings($table);
@@ -579,6 +684,9 @@
             const $thead = $table.find('thead').empty().addClass(tableClasses)
             const $tr = $('<tr></tr>').appendTo($thead);
             columns.forEach(column => {
+                if (column.visible === false) {
+                    return;
+                }
                 const $th = $('<th>', {
                     html: column.title ?? '',
                 }).appendTo($tr);
@@ -596,6 +704,9 @@
             tableClasses = settings.classes.tfoot;
         }
         if (columns && columns.length) {
+            if (column.visible === false) {
+                return;
+            }
             const $tfoot = $table.find('tfoot').empty().addClass(tableClasses);
             const $tr = $('<tr></tr>').appendTo($tfoot);
             columns.forEach(column => {
@@ -627,6 +738,9 @@
                 }
                 if (settings.columns && settings.columns.length) {
                     settings.columns.forEach(column => {
+                        if (column.visible === false) {
+                            return;
+                        }
                         buildTableBodyTd(column, row, $tr);
                     })
                 }
@@ -635,11 +749,22 @@
         } else {
             const $tr = $('<tr></tr>').appendTo($tbody);
             const $td = $('<td>', {
-                colspan: settings.columns.length,
+                colspan: getCountColumns($table),
                 class: 'text-center',
                 html: settings.formatNoMatches(),
             }).appendTo($tr);
         }
+    }
+
+    function getCountColumns($table, onlyVisible = true) {
+        const settings = getSettings($table);
+
+        if (!settings.columns || !settings.columns.length) {
+            return 0; // Keine Spalten
+        }
+
+        // Filtert sichtbare Spalten, wenn onlyVisible true ist, sonst zählt alle.
+        return settings.columns.filter(column => !onlyVisible || column.visible !== false).length;
     }
 
     function buildTableBodyTd(column, row, $tr) {
@@ -725,6 +850,16 @@
 
         return $pagination.length > 0 ? $pagination : $(); // Fallback: Leeres jQuery-Objekt, wenn keiner gefunden
     }
+    function getPaginationDetailsContainer($table) {
+        const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
+        // Finde den Pagination-Container und stelle sicher, dass er direkt zum aktuellen Wrapper gehört
+        const $pagination = $wrapper.find(`.${wrapperPaginationDetailsClass}`).filter(function () {
+            // Überprüfe, ob der Pagination-Container direkt dem aktuellen Wrapper zugeordnet ist
+            return getClosestWrapper($(this))[0] === $wrapper[0];
+        }).first(); // Hole nur den ersten passenden Pagination-Container
+
+        return $pagination.length > 0 ? $pagination : $(); // Fallback: Leeres jQuery-Objekt, wenn keiner gefunden
+    }
 
     function getSearchInput($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
@@ -787,6 +922,27 @@
         let searchTimeout;
 
         wrapper
+            .on('click', `[data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
+                e.preventDefault();
+                const $a = $(e.currentTarget);
+                if (getClosestWrapper($a)[0] === wrapper[0]) {
+                    const settings = getSettings($table);
+                    const response = $table.data('response')
+                    // Aktualisiere die Seitengröße
+                    settings.pageSize = parseInt($a.data('page'));
+                    const totalRows = response.total; // Gesamtdaten
+                    const maxPageNumber = Math.ceil(totalRows / settings.pageSize); // Maximale Seitenzahl
+
+                    // Fallback, falls die aktuelle Seite ungültig wird
+                    if (settings.pageNumber > maxPageNumber) {
+                        console.warn(`Seite ${settings.pageNumber} ist ungültig. Fallback auf letzte Seite (${maxPageNumber}).`);
+                        settings.pageNumber = maxPageNumber; // Fallback auf die letzte Seite
+                    }
+
+                    setSettings($table, settings);
+                    refresh($table); // Tabelle neu laden
+                }
+            })
             .on('click', `button[data-role="refresh"]`, function (e) {
                 e.preventDefault();
                 refresh($table)
@@ -852,7 +1008,7 @@
                 setSettings($table, settings);
 
                 // Aktualisiere die Tabelle basierend auf der neuen Seitenzahl
-                handlePaginationChange($table);
+                refresh($table);
             });
     }
 }(jQuery))

@@ -10,11 +10,12 @@
 <body>
 <div class="container py-5">
     <h1>$.fn.bsTable</h1>
+    <hr>
+    <div class="" id="toolbar_table"><h2 class="mb-0">Demo Table</h2></div>
     <table id="table"></table>
 
 </div>
 <script src="../vendor/components/jquery/jquery.min.js"></script>
-<script src="../vendor/webcito/jquery-affix/dist/jquery-affix.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-table.js"></script>
 <script>
@@ -22,15 +23,16 @@
         $.getJSON('data.json', function (data) {
             $('#table').bsTable({
                 classes: {
-                    table: 'table align-top table-sm',
-                    // thead: 'table-danger h4 text-uppercase',
+                    table: 'table align-top table-sm table-bordered',
+                    thead: 'table-dark h4 text-uppercase',
                     tbody: 'table-group-divider',
                     tfoot: 'table-warning',
                 },
+                toolbar: '#toolbar_table',
                 showFooter: false,
                 showHeader: true,
                 search:true,
-                pageSize: 11,
+                pageSize: 10,
                 // url: 'data.json',
                 pagination: true,
                 data: data,
@@ -41,7 +43,7 @@
                 //     "id": 1,
                 // }],
                 onPostBody: function (data) {
-                    console.log('onPostBody', data);
+                    // console.log('onPostBody', data);
                 },
                 rowStyle: function (row, index, $tr) {
                     if (index % 2 === 0) {
@@ -54,12 +56,14 @@
                     {
                         field: 'id',
                         title: 'ID',
+                        align: 'center',
+                        visible: false,
                         formatter: function (value, row, index, $td) {
-                            // if (index % 2 === 0) {
-                            //     $td.addClass('text-bg-primary fs-3');
-                            // } else {
-                            //     $td.addClass('text-bg-warning fs-3');
-                            // }
+                            if (index % 2 === 0) {
+                                $td.addClass('text-bg-dark  border-end fs-1');
+                            } else {
+                                $td.addClass('text-bg-secondary fs-1');
+                            }
                             return value;
                         },
                         events: {
@@ -70,30 +74,32 @@
                         }
                     },
                     {
-                        title: 'Name',
+                        title: 'Title',
                         field: 'title',
                     },
                     {
                         class: '',
-                        title: 'Name',
+                        title: 'Body',
                         field: 'body',
                     },
                     {
-                        title: 'Name',
-                        field: 'rofl',
+                        title: '',
+                        visible:false,
+                        field: 'actions',
                     }
                 ]
             });
 
-            setTimeout(() => {
-                $('#table').bsTable('refresh', {pageNumber: 23, pageSize: 3, silent: true});
-                setTimeout(() => {
-                    $('#table').bsTable('hideLoading');
-                },4000)
-            },5000)
+            // setTimeout(() => {
+            //     // $('#table').bsTable('refresh', {pageNumber: 23, pageSize: 3, silent: true});
+            //     $('#table').bsTable('showLoading');
+            //     setTimeout(() => {
+            //         $('#table').bsTable('hideLoading');
+            //     },4000)
+            // },5000)
 
             $('#table').on('post-body.bs.table', function (e, data) {
-                console.log('post-body.bs.table', data);
+                // console.log('post-body.bs.table', data);
             })
         })
 
@@ -101,4 +107,3 @@
 </script>
 </body>
 </html>
-

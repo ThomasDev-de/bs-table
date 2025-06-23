@@ -12,7 +12,6 @@
   "require": {
     "twbs/bootstrap": "^5",
     "components/jquery": "^3",
-    "twbs/bootstrap-icons": "^1",
-    "webcito/jquery-affix": "dev-main"
+    "twbs/bootstrap-icons": "^1"
   }
 }
