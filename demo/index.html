@@ -57,7 +57,8 @@
                         field: 'id',
                         title: 'ID',
                         align: 'center',
-                        visible: false,
+                        visible: true,
+                        sortable: true,
                         formatter: function (value, row, index, $td) {
                             if (index % 2 === 0) {
                                 $td.addClass('text-bg-dark  border-end fs-1');
@@ -74,10 +75,12 @@
                         }
                     },
                     {
+                        sortable: true,
                         title: 'Title',
                         field: 'title',
                     },
                     {
+                        sortable: true,
                         class: '',
                         title: 'Body',
                         field: 'body',

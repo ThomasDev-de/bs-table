@@ -13,6 +13,8 @@
             search: true,
             pageSize: 10,
             pageList: [10, 25, 50, 100, 200, 'All'],
+            sortName: null,
+            sortOrder: 'asc',
             showRefresh: true,
             showHeader: true,
             showFooter: true,
@@ -38,7 +40,7 @@
             formatNoMatches() {
                 return `<i class="bi bi-x-lg fs-3"></i>`
             },
-            debug: true
+            debug: false
         }
     };
 
@@ -68,6 +70,7 @@
                 settings: $.extend(true, {}, $.bsTable.defaults, $table.data() || {}, options),
             };
             $table.data('bsTable', bsTable);
+            $table.data('sort', []);
             buildTable($table);
             events($table);
         }
@@ -516,19 +519,19 @@
         settings.pageList
             .filter(page => page === 'All' || page < totalRows)
             .forEach(page => {
-            const value = page === 'All' ? 0 : page;
-            const isAll = value === 0;
-            const isActive = (isAll && pageSize === 0) || page === pageSize;
-            const text = isAll ? 'All' : page;
-            const $dropdownItem = $('<li>').append(
-                $('<a>', {
-                    class: `dropdown-item ${isActive ? 'active' : ''}`,
-                    href: '#',
-                    'data-page': value
-                }).text(text)
-            );
-            $dropdownMenu.append($dropdownItem);
-        });
+                const value = page === 'All' ? 0 : page;
+                const isAll = value === 0;
+                const isActive = (isAll && pageSize === 0) || page === pageSize;
+                const text = isAll ? 'All' : page;
+                const $dropdownItem = $('<li>').append(
+                    $('<a>', {
+                        class: `dropdown-item ${isActive ? 'active' : ''}`,
+                        href: '#',
+                        'data-page': value
+                    }).text(text)
+                );
+                $dropdownMenu.append($dropdownItem);
+            });
 
         // Text für "rows per page"
         const $rowsPerPageText = $('<span>').text('');
@@ -687,9 +690,20 @@
                 if (column.visible === false) {
                     return;
                 }
+                const html = [
+                    `<div class="d-flex align-items-center justify-content-between">`,
+                    `<span>${column.title ?? ''}</span>`,
+                ];
+                if (column.sortable === true) {
+                    html.push(`<span><i class="bi bi-caret-down"></i></span>`);
+                }
+                html.push(`</div>`);
                 const $th = $('<th>', {
-                    html: column.title ?? '',
+                    html: html.join('')
                 }).appendTo($tr);
+                $th.attr('data-sortable', column.sortable === true ? 'true' : 'false');
+                $th.attr('data-sort-name', column.field);
+                $th.attr('data-sort-order', settings.sortOrder ?? '');
             })
         }
     }
@@ -850,6 +864,7 @@
 
         return $pagination.length > 0 ? $pagination : $(); // Fallback: Leeres jQuery-Objekt, wenn keiner gefunden
     }
+
     function getPaginationDetailsContainer($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
         // Finde den Pagination-Container und stelle sicher, dass er direkt zum aktuellen Wrapper gehört
@@ -922,6 +937,26 @@
         let searchTimeout;
 
         wrapper
+            .on('click', `[data-sortable="true"]`, function (e) {
+                const $th = $(e.currentTarget);
+                if (getClosestWrapper($th)[0] === wrapper[0]) {
+                    const sortName = $th.attr('data-sort-name');
+                    let sortOrder = $th.attr('data-sort-order');
+                    if (sortOrder === 'asc') {
+                        sortOrder = 'desc';
+                    } else if (sortOrder === 'desc') {
+                        sortOrder = '';
+                    } else {
+                        sortOrder = 'asc';
+                    }
+                    $th.attr('data-sort-order', sortOrder);
+                    const settings = getSettings($table);
+                    settings.sortName = sortName;
+                    settings.sortOrder = sortOrder;
+                    setSettings($table, settings);
+                    refresh($table);
+                }
+            })
             .on('click', `[data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
                 e.preventDefault();
                 const $a = $(e.currentTarget);
