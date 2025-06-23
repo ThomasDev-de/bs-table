@@ -701,9 +701,11 @@
                 const $th = $('<th>', {
                     html: html.join('')
                 }).appendTo($tr);
+                $th.data('sort', {
+                    sortName: column.field,
+                    sortOrder: settings.sortOrder ?? '',
+                })
                 $th.attr('data-sortable', column.sortable === true ? 'true' : 'false');
-                $th.attr('data-sort-name', column.field);
-                $th.attr('data-sort-order', settings.sortOrder ?? '');
             })
         }
     }
@@ -940,8 +942,9 @@
             .on('click', `[data-sortable="true"]`, function (e) {
                 const $th = $(e.currentTarget);
                 if (getClosestWrapper($th)[0] === wrapper[0]) {
-                    const sortName = $th.attr('data-sort-name');
-                    let sortOrder = $th.attr('data-sort-order');
+                    const table = $th.closest('table');
+                    const sort = $th.data('sort');
+                    let sortOrder = sort.sortOrder;
                     if (sortOrder === 'asc') {
                         sortOrder = 'desc';
                     } else if (sortOrder === 'desc') {
@@ -949,10 +952,12 @@
                     } else {
                         sortOrder = 'asc';
                     }
-                    $th.attr('data-sort-order', sortOrder);
+                    sort.sortOrder = sortOrder;
+                    $th.data('sort', sort);
+
                     const settings = getSettings($table);
-                    settings.sortName = sortName;
-                    settings.sortOrder = sortOrder;
+                    settings.sortName = sort.sortName;
+                    settings.sortOrder = sort.sortOrder;
                     setSettings($table, settings);
                     refresh($table);
                 }
