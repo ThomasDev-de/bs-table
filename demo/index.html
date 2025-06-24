@@ -108,8 +108,9 @@
                             });
                         },
                         onPostBody: function () {
+                            console.log('onPostBody', $(this));
                             table.find('table').first().bsTable('setCaption', {
-                                text: 'test',
+                                text: 'test 2',
                                 onTop: false,
                             });
                         },
