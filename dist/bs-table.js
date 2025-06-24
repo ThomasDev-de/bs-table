@@ -12,7 +12,7 @@
             pageNumber: 1,
             search: true,
             pageSize: 10,
-            pageList: [10, 25, 50, 100, 200, 'All'],
+            pageList: [5, 10, 25, 50, 100, 200, 'All'],
             sortName: null,
             sortOrder: 'asc',
             multipleSort: [],
@@ -23,8 +23,8 @@
             data: null,
             columns: [],
             icons: {
-                sortAsc: 'bi bi-caret-down-fill',
-                sortDesc: 'bi bi-caret-up-fill',
+                sortAsc: 'bi bi-caret-down-fill text-primary',
+                sortDesc: 'bi bi-caret-up-fill text-primary',
                 sortNone: 'bi bi-caret-down',
                 refresh: 'bi bi-arrow-clockwise',
                 search: 'bi bi-search',
@@ -85,6 +85,7 @@
                 if (column.field && column.sortable === true) {
                     const selected = column.field === settings.sortName;
                     settings.multipleSort.push({
+                        sort: selected ? 1 : null,
                         selected: selected,
                         field: column.field,
                         order: selected ? settings.sortOrder ?? 'asc' : ''
@@ -101,16 +102,57 @@
 
         if (typeof optionsOrMethod === 'string') {
             switch (optionsOrMethod) {
-                case 'showLoading':
+                case 'showLoading': {
                     showLoading($table);
+                }
                     break;
-                case 'hideLoading':
+                case 'hideLoading': {
                     hideLoading($table);
+                }
                     break;
-                case 'refresh':
+                case 'refresh': {
                     const arg = args.length ? args[0] : null;
                     refresh($table, arg);
+                }
                     break;
+                case 'refreshOptions': {
+                    const arg = args.length ? args[0] : null;
+                    if (arg && typeof arg === 'object') {
+                        const setup = getSettings($table);
+                        $.extend(true, setup, arg);
+                        setSettings($table, setup);
+                        refresh($table);
+                    }
+                }
+                    break;
+                case 'getSettings': {
+                    return getSettings($table);
+                } break;
+                case 'setCaption': {
+                    const arg = args.length ? args[0] : null;
+                    if (arg !== null && typeof arg === 'object') {
+                        let caption = $table.find('caption:first');
+                        if (! caption.length) {
+                            caption = $('<caption>', {
+                                html: arg.text,
+                            }).prependTo($table);
+                        } else {
+                            caption.html(arg.text);
+                        }
+                        if (arg.hasOwnProperty('onTop') && arg.onTop === true) {
+                            caption.addClass('caption-top');
+                        } else {
+                            caption.removeClass('caption-top');
+                        }
+                        if (arg.hasOwnProperty('classes') && typeof arg.classes === 'string') {
+                            // Entferne alle vorhandenen Klassen aus dem Element
+                            caption.attr('class', '');
+
+                            // Füge die neue Klasse hinzu
+                            caption.addClass(arg.classes);
+                        }
+                    }
+                }break;
             }
         }
 
@@ -190,6 +232,12 @@
 
             let params = {};
 
+            if (settings.sortName && settings.sortOrder) {
+                params.sort = settings.sortName;
+                params.order = settings.sortOrder;
+            }
+
+            // Handle limit and offset
             // Pagination prüfen und anpassen
             const pageNumber = settings.pageNumber > 0 ? settings.pageNumber : 1;
             const pageSize = settings.pageSize ?? 10; // Setze Standardwert, falls pageSize nicht definiert ist
@@ -209,6 +257,7 @@
                 }
             }
 
+            // Handle search
             // Suchkriterien verarbeiten
             const searchInput = getSearchInput($table);
             if (settings.search && searchInput.length) {
@@ -219,6 +268,7 @@
                 }
             }
 
+            // handle custom params
             // Zusätzliche Query-Parameter vom User
             if (typeof settings.queryParams === "function") {
                 params = settings.queryParams(params);
@@ -229,11 +279,24 @@
 
             // Verarbeitung von lokalen Daten
             if (Array.isArray(settings.data)) {
+
                 if (settings.debug) {
                     console.log("Lokale Daten erkannt. Verarbeite lokale Daten...");
                 }
 
-                let filteredData = settings.data;
+                let filteredData = [...settings.data];
+
+                if (params.sort && params.order) {
+                    if (settings.debug) {
+                        console.log(`Sortiere lokale Daten nach "${params.sort}" in Reihenfolge "${params.order}".`); // DEBUG
+                    }
+
+                    sortArrayByField(filteredData, params.sort, params.order);
+
+                    if (settings.debug) {
+                        console.log("Daten nach Sortierung:", filteredData); // DEBUG
+                    }
+                }
 
                 // Suche anwenden, falls relevant
                 if (params.search) {
@@ -249,6 +312,7 @@
                         console.log(`Gefilterte Datenanzahl nach Suchkriterien (${params.search}):`, filteredData.length); // DEBUG
                     }
                 }
+
 
                 const totalRows = filteredData.length;
 
@@ -301,39 +365,113 @@
             }
 
             // Verarbeitung von serverseitigen Daten (falls konfiguriert)
+            // Verarbeitung von serverseitigen Daten (falls konfiguriert)
             if (settings.url) {
                 if (settings.debug) {
-                    console.log("Hole Daten vom Server:", settings.url, "mit Parametern:", params); // DEBUG
+                    console.log("Starte Datenabruf vom Server:", settings.url, "mit Parametern:", params); // DEBUG
                 }
-                $.ajax({
-                    url: settings.url,
-                    method: "GET",
-                    data: params,
-                    dataType: "json"
-                })
-                    .done(response => {
-                        const processedResponse = Array.isArray(response)
-                            ? {rows: response, total: response.length}
-                            : {rows: response.rows || [], total: response.total || 0};
 
-                        if (settings.debug) {
-                            console.log("API-Antwort erhalten:", processedResponse); // DEBUG
-                        }
+                if (typeof settings.url === "function") {
+                    // `url` ist eine Funktion: Call und warten auf Promise
+                    if (settings.debug) {
+                        console.log("settings.url ist eine Funktion. Rufe Funktion mit Parametern auf."); // DEBUG
+                    }
 
-                        $table.data('response', processedResponse);
-                        if (settings.debug) {
-                            console.groupEnd();
-                        }
-                        resolve();
+                    settings.url(params)
+                        .then(response => {
+                            // Verarbeite die Antwort wie bei der normalen Ajax-Abfrage
+                            const processedResponse = Array.isArray(response)
+                                ? {rows: response, total: response.length}
+                                : {rows: response.rows || [], total: response.total || 0};
+
+                            if (settings.debug) {
+                                console.log("API-Antwort von Funktion erhalten:", processedResponse); // DEBUG
+                            }
+
+                            $table.data('response', processedResponse);
+
+                            if (settings.debug) {
+                                console.groupEnd();
+                            }
+
+                            resolve();
+                        })
+                        .catch(error => {
+                            // Fehlerhandling
+                            if (settings.debug) {
+                                console.error("Fehler bei der Verarbeitung der Funktion:", error); // DEBUG
+                                console.groupEnd();
+                            }
+                            reject(new Error(`Fehler bei der API-Abfrage (Funktion): ${error.message || error}`));
+                        });
+                } else {
+                    // `url` ist ein String: Standard-Ajax-Logik
+                    if (settings.debug) {
+                        console.log("settings.url ist ein String. Verwende $.ajax für Abruf."); // DEBUG
+                    }
+
+                    $.ajax({
+                        url: settings.url,
+                        method: "GET",
+                        data: params,
+                        dataType: "json"
                     })
-                    .fail((xhr, status, error) => {
-                        if (settings.debug) {
-                            console.error("Fehler bei der API-Abfrage:", status, error); // DEBUG
-                            console.groupEnd();
-                        }
-                        reject(new Error(`Fehler bei der API-Abfrage: ${status}, ${error}`));
-                    });
+                        .done(response => {
+                            const processedResponse = Array.isArray(response)
+                                ? {rows: response, total: response.length}
+                                : {rows: response.rows || [], total: response.total || 0};
+
+                            if (settings.debug) {
+                                console.log("API-Antwort von String-URL erhalten:", processedResponse); // DEBUG
+                            }
+
+                            $table.data('response', processedResponse);
+
+                            if (settings.debug) {
+                                console.groupEnd();
+                            }
+
+                            resolve();
+                        })
+                        .fail((xhr, status, error) => {
+                            if (settings.debug) {
+                                console.error("Fehler bei der API-Abfrage (String-URL):", status, error); // DEBUG
+                                console.groupEnd();
+                            }
+                            reject(new Error(`Fehler bei der API-Abfrage (String-URL): ${status}, ${error}`));
+                        });
+                }
             }
+        });
+    }
+
+    /**
+     * Sortiert ein Array basierend auf einem Feld und einer Sortierreihenfolge.
+     *
+     * @param {Array} data - Das Array, das sortiert werden soll.
+     * @param {string} field - Der Name des Feldes, nach dem sortiert werden soll.
+     * @param {string} order - Die Sortierreihenfolge: "ASC" (aufsteigend) oder "DESC" (absteigend).
+     * @return {Array} - Das sortierte Array.
+     */
+    function sortArrayByField(data, field, order = "ASC") {
+        // Sicherstellen, dass die Reihenfolge korrekt ist
+        const direction = order.toUpperCase() === "DESC" ? -1 : 1;
+
+        return data.sort((a, b) => {
+            // NULL-Werte nach hinten sortieren
+            if (a[field] == null && b[field] == null) return 0; // Beide NULL
+            if (a[field] == null) return 1 * direction; // `a` ist NULL → `b` vorher
+            if (b[field] == null) return -1 * direction; // `b` ist NULL → `a` vorher
+
+            // Zahlen- oder Stringvergleich
+            const aValue = typeof a[field] === "number" ? a[field] : a[field].toString().toLowerCase();
+            const bValue = typeof b[field] === "number" ? b[field] : b[field].toString().toLowerCase();
+
+            if (aValue > bValue) return 1 * direction;
+            if (aValue < bValue) return -1 * direction;
+
+            // Alles gleich: Reihenfolge beibehalten
+            return 0;
         });
     }
 
@@ -351,55 +489,106 @@
         if (typeof settings.classes === 'string') {
             settings.classes.split(' ').forEach(className => {
                 const name = className.trim();
-                if (! isValueEmpty(name)) {
+                if (!isValueEmpty(name)) {
                     tableClasses.push(className);
                 }
             });
         } else if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('table')) {
             settings.classes.table.split(' ').forEach(className => {
                 const name = className.trim();
-                if (! isValueEmpty(name)) {
+                if (!isValueEmpty(name)) {
                     tableClasses.push(className);
                 }
             });
         }
         $table.addClass(tableClasses.join(' '));
-
-        // Erstelle den scrollbaren `table-responsive` Bereich
         $table.appendTo($wrapper);
 
         // **Neuer Table-Top-Container inkl. Pagination und Suche**
-        const $tableTopContainer = $('<div class="mb-3 d-flex flex-column gap-2"></div>').prependTo($wrapper);
-        const $tableTopContainerFirstRow = $('<div class="d-flex justify-content-end gap-2"></div>').appendTo($tableTopContainer);
-        const $tableTopContainerSecondRow = $('<div class="d-flex justify-content-between gap-2"></div>').appendTo($tableTopContainer);
-        // Falls ein Toolbar-Element definiert ist
-        if (settings.toolbar && $(settings.toolbar).length > 0) {
-            $(settings.toolbar).addClass('me-auto').prependTo($tableTopContainerFirstRow);
-        } else {
-            $('<div>').appendTo($tableTopContainerFirstRow);
+        const $tableTopContainer = buildTableTop($table).prependTo($wrapper);
+        const $tableBottomContainer = buildTableBottom($table).appendTo($wrapper);
+
+        $('<thead></thead>').appendTo($table);
+        $('<tbody></tbody>').appendTo($table);
+        $('<tfoot></tfoot>').appendTo($table);
+
+        refresh($table)
+    }
+
+    function buildTableBottom($table) {
+        const $wrapper = getWrapper($table);
+        const settings = getSettings($table);
+
+        let flexClass = 'flex-row';
+        if (!['right', 'end'].includes(settings.paginationHAlign)) {
+            flexClass += ' flex-row-reverse';
         }
 
+        let gapClass = '';
+        if ((settings.pagination === true && ['bottom', 'both'].includes(settings.paginationVAlign))) {
+            gapClass = 'gap-2 py-2';
+        }
+
+        const template = `
+            <div class="d-flex flex-column ${gapClass}" data-role="tableBottomContainer">
+                <div class="d-flex justify-content-between ${flexClass}">
+                    <div class="${wrapperPaginationDetailsClass}"></div>
+                    <div class="${wrapperPaginationClass} bottom"></div>
+                </div>
+            </div>`;
+        return $(template);
+    }
+
+    function buildTableTop($table) {
+        const $wrapper = getWrapper($table);
+        const settings = getSettings($table);
+
+        let flexClass = 'flex-row';
+        if (!['right', 'end'].includes(settings.paginationHAlign)) {
+            flexClass += ' flex-row-reverse';
+        }
+
+        let gapClass = '';
+        if (
+            (settings.pagination === true && ['top', 'both'].includes(settings.paginationVAlign)) ||
+            settings.search === true ||
+            settings.toolbar ||
+            settings.showRefresh
+        ) {
+            gapClass = 'gap-2 py-2';
+        }
+
+        const template = `
+            <div class="d-flex flex-column ${gapClass}" data-role="tableTopContainer">
+                <div class="d-flex justify-content-end align-items-end">
+                    <div class="d-flex bs-table-toolbar me-auto">
+                    </div>
+                    <div class="d-flex ${wrapperSearchClass}">
+                    </div>
+                    <div class="btn-group bs-table-buttons">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between ${flexClass}">
+                    <div class="${wrapperPaginationDetailsClass}"></div>
+                    <div class="${wrapperPaginationClass} top"></div>
+                </div>
+            </div>`;
+
+        // Top Container bestehend aus 1-n Zeilen
+        const $tableTopContainer = $(template);
+        const $toolbarContainer = $tableTopContainer.find('.bs-table-toolbar');
+        const $searchWrapper = $tableTopContainer.find('.' + wrapperSearchClass);
+        const $btnContainer = $tableTopContainer.find('.bs-table-buttons');
+
+
+        // Falls ein Toolbar-Element definiert ist, füge dieses in die erste Zeile und
+        // setze margin end auf auto, damit sie links zentriert ist
+        if (settings.toolbar && $(settings.toolbar).length > 0) {
+            $(settings.toolbar).prependTo($toolbarContainer);
+        }
 
         // Such-Wrapper erstellen (links)
-        const $searchWrapper = $('<div class="' + wrapperSearchClass + '"></div>').appendTo($tableTopContainerFirstRow);
-
-        const $locationWrapper = $('<div>', {
-            class: wrapperPaginationDetailsClass,
-        }).prependTo($tableTopContainerSecondRow)
-
-        // Pagination-Container oben einfügen (rechts)
-
-        const $paginationContainerTop = $(`<div class="${wrapperPaginationClass} top d-flex justify-content-end"></div>`);
-        if (['right', 'end'].includes(settings.paginationHAlign)) {
-            $paginationContainerTop.appendTo($tableTopContainerSecondRow);
-        } else {
-            $paginationContainerTop.appendTo($tableTopContainerSecondRow);
-        }
-
-        // Pagination-Container unten einfügen
-        const $paginationContainerBottom = $(`<div class="${wrapperPaginationClass} bottom d-flex justify-content-end"></div>`).appendTo($wrapper);
-
-        // Falls die Suche aktiviert ist, füge ein Input-Feld und Logik hinzu
+// Falls die Suche aktiviert ist, füge ein Input-Feld und Logik hinzu
         if (settings.search === true) {
             const $searchInputGroup = $(`
     <div class="input-group">
@@ -410,7 +599,6 @@
             $searchInputGroup.appendTo($searchWrapper);
         }
 
-        const $btnContainer = $('<div class="d-flex gap-1 bs-table-buttons"></div>').appendTo($tableTopContainerFirstRow);
         if (settings.showRefresh) {
             const $refreshButton = $(`<button>`, {
                 class: 'btn btn-secondary',
@@ -420,47 +608,45 @@
             }).appendTo($btnContainer);
         }
 
-        // Grundklassen an die Tabelle anwenden
 
-        $('<thead></thead>').appendTo($table);
-        $('<tbody></tbody>').appendTo($table);
-        $('<tfoot></tfoot>').appendTo($table);
-
-
-        // Generiere Header (basierend auf Spalten)
-        buildTableHeader($table, settings.columns);
-        refresh($table)
+        return $tableTopContainer;
     }
 
     function hideLoading($table) {
         const $overlay = getOverlay($table);
-        $overlay.remove();
+        if (!$overlay.length) return; // Abbruch, falls kein Overlay vorhanden ist
+
+        // Vorherige Animation stoppen und sanftes Ausblenden starten
+        $overlay.stop().animate({opacity: 0}, 100, function () {
+            // Nach dem Ausblenden das Overlay vollständig entfernen
+            $(this).remove();
+        });
     }
 
     function showLoading($table) {
         const settings = getSettings($table);
 
         const wrapper = getWrapper($table);
-        // Entferne vorhandenes Overlay, falls es existiert
+        // Vorhandenes Overlay entfernen, falls vorhanden
         hideLoading($table);
-
-        // Anzahl der Zeilen und Spalten basierend auf den Einstellungen
-        const columnCount = settings.columns.length;
-        const rowCount = settings.pageSize;
 
         // Overlay generieren
         const $overlay = $('<div>', {
-            class: wrapperOverlayClass + ' position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-start pt-5 opacity-75 bg-body',
+            class: wrapperOverlayClass + ' position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-body',
             css: {
                 zIndex: 4,
+                opacity: 0 // Das Overlay startet unsichtbar
             }
         }).appendTo(wrapper);
 
-        // // Placeholder-Struktur erstellen
+        // Placeholder-Struktur erstellen (Inhalt des Overlays)
         const $content = $(`
-<div class="spinner-border"  style="width: 3rem; height: 3rem;"   role="status">
+<div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
   <span class="visually-hidden">Loading...</span>
 </div>`).appendTo($overlay);
+
+        // Sanftes Einblenden mit animate
+        $overlay.animate({opacity: 0.75}, 100); // Dauer: 300ms
     }
 
     function renderTable($table) {
@@ -495,8 +681,8 @@
         const $topPaginationContainer = getPaginationContainer($table, true).empty();
         const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
 
-        // const $paginationDetailHtml = createPaginationDetails($table, totalRows);
-        const $btnContainer = wrapper.find('.bs-table-buttons:first');
+        const $tableTopContainer = getTableTopContainer($table);
+        const $btnContainer = $tableTopContainer.find('.bs-table-buttons:first');
         if (isValueEmpty(settings.pageList)) {
             $btnContainer.find('[data-role="tablePaginationPageSize"]:first').remove();
         } else {
@@ -506,6 +692,14 @@
             } else {
                 $pageListDropdown.prependTo($btnContainer);
             }
+        }
+
+        if ($btnContainer.find('.btn').length && settings.search === true) {
+            // haben wir buttons und ein suchfeld, packe margin hinzu
+            $btnContainer.addClass('ms-2');
+        } else {
+            // andernfalls entferne den margin
+            $btnContainer.removeClass('ms-2');
         }
 
         if (settings.pagination && pageSize !== 0) {
@@ -602,12 +796,12 @@
 
         // Haupt-Wrapper (d-flex für Flexbox)
         const $dropdownWrapper = $('<div>', {
-            'class': 'dropdown',
+            'class': 'dropdown btn-group',
             'data-role': 'tablePaginationPageSize'
         });
         // Dropdown für die Zeilenanzahl pro Seite
         const $dropdownToggle = $('<button>', {
-            'class': 'btn btn-secondary dropdown-toggle me-1',
+            'class': 'btn btn-secondary dropdown-toggle',
             'type': 'button',
             'id': 'dropdownPaginationPageSize',
             'data-bs-toggle': 'dropdown',
@@ -615,7 +809,7 @@
         }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-list-columns-reverse"></i>');
 
         const $dropdownMenu = $('<ul>', {
-            'class': 'dropdown-menu',
+            'class': 'dropdown-menu dropdown-menu-end',
             'aria-labelledby': 'dropdownPaginationPageSize'
         });
 
@@ -798,23 +992,111 @@
                     `<span>${column.title ?? ''}</span>`,
                 ];
                 if (column.sortable === true) {
-                    html.push(`<span><i class="bi bi-caret-down"></i></span>`);
+
+                    html.push(`<span><i class="bs-table-icon"></i></span>`);
                 }
                 html.push(`</div>`);
+                const order = column.field === settings.sortName ? settings.sortOrder ?? '' : '';
                 const $th = $('<th>', {
+                    'data-sortable': column.sortable === true ? 'true' : 'false',
+                    'data-field': column.field,
+                    'data-order': order,
                     html: html.join('')
                 }).appendTo($tr);
+                if (column.sortable === true) {
+                    $th.css('cursor', 'pointer');
+                }
+
+                const icon = getIconBySortOrder($table, order);
+                $th.find('.bs-table-icon').addClass(icon);
 
                 if (column.width) {
                     $th.css('width', column.width);
                 }
-                $th.data('sort', {
-                    sortName: column.field,
-                    sortOrder: settings.sortOrder ?? '',
-                })
-                $th.attr('data-sortable', column.sortable === true ? 'true' : 'false');
             })
         }
+    }
+
+    function setNextSortStatus($table, field) {
+        const settings = getSettings($table);
+        const el = settings.multipleSort.find(sort => sort.field === field);
+
+        if (el) {
+            if (el.order === 'asc') {
+                el.order = 'desc';
+                el.icon = settings.icons.sortDesc;
+                el.selected = true;
+                settings.sortOrder = 'desc';
+                settings.sortName = field;
+            } else if (el.order === 'desc') {
+                el.order = '';
+                el.icon = settings.icons.sortNone;
+                el.selected = false;
+                settings.sortOrder = null;
+                settings.sortName = null;
+            } else {
+                el.order = 'asc';
+                el.icon = settings.icons.sortAsc;
+                el.selected = true;
+                settings.sortOrder = 'asc';
+                settings.sortName = field;
+            }
+
+            // Setze ein Hilfsattribut, um die zuletzt angeklickte Spalte zu markieren
+            if (el.selected) {
+                el.lastSelected = Date.now(); // Aktueller Zeitstempel
+            } else {
+                el.lastSelected = null; // Zurücksetzen, wenn nicht mehr ausgewählt
+            }
+
+            // Aktualisiere die Sortierlogik
+            updateSortOrder(settings.multipleSort);
+
+            // Hilfsattribute `lastSelected` entfernen
+            settings.multipleSort.forEach(sort => delete sort.lastSelected);
+
+            // Speichere die geänderten Einstellungen
+            setSettings($table, settings);
+        }
+    }
+
+    function updateSortOrder(multipleSort) {
+        let sortIndex = 1;
+
+        // Sortiere das Array nach den `selected`- und `lastSelected`-Attributen
+        multipleSort.sort((a, b) => {
+            // Priorität 1: `selected` zuerst (true vor false)
+            if (a.selected !== b.selected) {
+                return b.selected - a.selected;
+            }
+
+            // Priorität 2: Innerhalb der `selected`-Gruppe, nach `lastSelected` (höherer Timestamp = weiter hinten)
+            if (a.selected && b.selected) {
+                return (a.lastSelected || 0) - (b.lastSelected || 0);
+            }
+
+            return 0; // Keine Änderung für nicht selektierte Spalten
+        });
+
+        // Neue Sort-Werte vergeben
+        multipleSort.forEach(sort => {
+            if (sort.selected) {
+                sort.sort = sortIndex++;
+            } else {
+                sort.sort = null; // `sort` zurücksetzen, wenn nicht ausgewählt
+            }
+        });
+    }
+
+    function getIconBySortOrder($table, sortOrder) {
+        const settings = getSettings($table);
+        if (sortOrder === 'asc') {
+            return settings.icons.sortAsc;
+        }
+        if (sortOrder === 'desc') {
+            return settings.icons.sortDesc;
+        }
+        return settings.icons.sortNone;
     }
 
     function buildTableFooter($table, columns, data) {
@@ -962,17 +1244,22 @@
         return $element.closest(`.${wrapperClass}`);
     }
 
-    function getPaginationContainer($table, top) {
+    function getTableBottomContainer($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
-        const className = top ? 'top' : 'bottom'; // Bestimme, ob die Pagination oben oder unten sein soll
+        return $wrapper.find(`[data-role="tableBottomContainer"]`).first();
+    }
 
-        // Finde den Pagination-Container und stelle sicher, dass er direkt zum aktuellen Wrapper gehört
-        const $pagination = $wrapper.find(`.${wrapperPaginationClass}.${className}`).filter(function () {
-            // Überprüfe, ob der Pagination-Container direkt dem aktuellen Wrapper zugeordnet ist
-            return getClosestWrapper($(this))[0] === $wrapper[0];
-        }).first(); // Hole nur den ersten passenden Pagination-Container
+    function getTableTopContainer($table) {
+        const $wrapper = getWrapper($table);
+        return $wrapper.find(`[data-role="tableTopContainer"]`).first();
+    }
 
-        return $pagination.length > 0 ? $pagination : $(); // Fallback: Leeres jQuery-Objekt, wenn keiner gefunden
+    function getPaginationContainer($table, top) {
+        if (top) {
+            return getTableTopContainer($table).find('.' + wrapperPaginationClass);
+        } else {
+            return getTableBottomContainer($table).find('.' + wrapperPaginationClass);
+        }
     }
 
     function getPaginationDetailsContainer($table) {
@@ -1058,6 +1345,61 @@
         return false; // All other values are considered non-empty (including numbers)
     }
 
+    function handleTheadThClick($table, $current) {
+        const settings = getSettings($table);
+        const allSortableHeaders = $table.find('thead:first th[data-sortable="true"]')
+        const filteredHeaders = allSortableHeaders.not($current);
+
+        filteredHeaders.each(function (i, el) {
+            const $th = $(el);
+            $th.attr('data-order', '');
+            const $icon = $th.find('i.bs-table-icon');
+            $icon.removeClass(settings.icons.sortNone);
+            $icon.removeClass(settings.icons.sortAsc);
+            $icon.removeClass(settings.icons.sortDesc);
+            $icon.addClass(settings.icons.sortNone);
+        });
+
+        if ($current.length > 0) {
+            let order = $current.attr('data-order');
+            if (order === 'asc') {
+                order = 'desc';
+            } else if (order === 'desc') {
+                order = '';
+            } else {
+                order = 'asc';
+            }
+            const $iconCurrent = $current.find('i.bs-table-icon');
+            const field = $current.attr('data-field');
+            $iconCurrent.removeClass(settings.icons.sortNone);
+            $iconCurrent.removeClass(settings.icons.sortAsc);
+            $iconCurrent.removeClass(settings.icons.sortDesc);
+            $current.attr('data-order', order);
+            settings.sortOrder = order === '' ? null : order;
+            settings.sortName = field;
+            settings.pageNumber = 1;
+
+            switch (order) {
+                case 'asc': {
+                    $iconCurrent.addClass(settings.icons.sortAsc);
+                }
+                    break;
+                case 'desc': {
+                    $iconCurrent.addClass(settings.icons.sortDesc);
+                }
+                    break;
+                default: {
+                    $iconCurrent.addClass(settings.icons.sortNone);
+                }
+            }
+        } else {
+            settings.sortOrder = null;
+            settings.sortName = null;
+        }
+
+        setSettings($table, settings);
+    }
+
     function events($table) {
         const wrapper = getWrapper($table);
         let searchTimeout;
@@ -1067,22 +1409,7 @@
                 const $th = $(e.currentTarget);
                 if (getClosestWrapper($th)[0] === wrapper[0]) {
                     const table = $th.closest('table');
-                    const sort = $th.data('sort');
-                    let sortOrder = sort.sortOrder;
-                    if (sortOrder === 'asc') {
-                        sortOrder = 'desc';
-                    } else if (sortOrder === 'desc') {
-                        sortOrder = '';
-                    } else {
-                        sortOrder = 'asc';
-                    }
-                    sort.sortOrder = sortOrder;
-                    $th.data('sort', sort);
-
-                    const settings = getSettings($table);
-                    settings.sortName = sort.sortName;
-                    settings.sortOrder = sort.sortOrder;
-                    setSettings($table, settings);
+                    handleTheadThClick(table, $th);
                     refresh($table);
                 }
             })
