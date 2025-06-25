@@ -1561,14 +1561,34 @@
         }
     }
 
-    function triggerEvent($table, eventName, ...args) {
-        $table.trigger(eventName + namespace, args);
+    // function triggerEvent($table, eventName, ...args) {
+    //     $table.trigger(eventName + namespace, args);
+    //
+    //     // Nur nach dem spezifischen Event das 'all' Event auslösen
+    //     if (eventName !== 'all') {
+    //         $table.trigger('all' + namespace, [eventName + namespace, ...args, $table]);
+    //     }
+    // }
 
-        // Nur nach dem spezifischen Event das 'all' Event auslösen
+    function triggerEvent($table, eventName, ...args) {
+        // Namespace korrekt ergänzen
+        const event = $.Event(eventName + '.bs.table', {
+            target: $table[0], // Sicherstellen, dass nur $table das Ziel ist
+        });
+
+        // Trigger-Event nur auf der angegebenen Tabelle
+        $table.trigger(event, args);
+
         if (eventName !== 'all') {
-            $table.trigger('all' + namespace, [eventName + namespace, ...args, $table]);
+            const allEvent = $.Event('all.bs.table', {
+                target: $table[0],
+            });
+
+            $table.trigger(allEvent, [eventName, ...args]);
         }
     }
+
+
 
     function getTableByWrapperId(wrapperId) {
         return $(`table[data-wrapper="${wrapperId}"`);
