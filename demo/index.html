@@ -92,9 +92,14 @@
                 pageSize: 10,
                 pagination: true,
                 data: data,
+                idField: 'id',
                 paginationVAlign: 'bottom',
                 paginationHAlign: 'end',
                 sidePagination: 'client',
+                caption: {
+                    text: "Table with local datas",
+                    onTop: true,
+                },
                 onPostBody: function () {
                     table.find('table').first().bsTable({
                         classes: {
@@ -107,14 +112,11 @@
                                 return processData(data, params);
                             });
                         },
-                        onPostBody: function () {
-                            console.log('onPostBody', $(this));
-                            table.find('table').first().bsTable('setCaption', {
-                                text: 'test 2',
-                                onTop: false,
-                            });
+                        caption: {
+                            text: "Table with remote datas fetched from url as function",
+                            onTop: true,
                         },
-                        debug: true,
+                        debug: false,
                         pagination: true,
                         search: true,
                         sidePagination: 'server',
@@ -124,20 +126,38 @@
                         showRefresh: true,
                         pageSize: 5,
                         columns: [{
+                            checkbox: true,
                             sortable: true,
                             title: 'ID2',
                             field: 'id',
                             footerFormatter(dataRow) {
-                                return 'Total: ' + dataRow.length;
+                                const sumOfIds = dataRow.reduce((sum, row) => {
+                                    return sum + (row.id || 0); // Füge die ID hinzu, falls sie existiert, sonst 0
+                                }, 0);
+
+                                return '<span class="text-nowrap">Sum of IDs: ' + sumOfIds + '</span>';
                             }
                         }, {
                             sortable: true,
                             title: 'Title2',
                             field: 'title',
+                            footerFormatter(dataRow) {
+                                const totalTitleLength = dataRow.reduce((lengthSum, row) => {
+                                    return lengthSum + (row.title ? row.title.length : 0); // Füge die Länge von title hinzu, falls vorhanden
+                                }, 0);
+
+                                return '<span class="text-nowrap">length: ' + totalTitleLength + ' character</span>';
+                            }
+
                         }]
                     })
                 },
                 columns: [
+                    {
+                        visible: false,
+                        field: 'id',
+                        checkbox: true,
+                    },
                     {
                         field: 'id',
                         title: 'ID',
@@ -164,16 +184,30 @@
                         field: 'actions',
                         width: '50%',
                         formatter: function (value, row, index, $td) {
-                            if (index === 1)
-                                return '<div id="sub_table_toolbar"><span  class="badge bg-primary-subtle">subtable with url as function</span></div><table data-toolbar="#sub_table_toolbar"></table>';
+                            if (index === 0)
+                                $('<table id="test" data-toolbar="#sub_table_toolbar"></table>').appendTo($td);
                         }
                     }
                 ]
             });
 
-            table.on('post-body.bs.table', function (e, data) {
-                // console.log('post-body.bs.table', data);
-            })
+
+            // Direkte Bindung des Event-Handlers an die Tabelle
+            $(document).on('all.bs.table', '#table', function (e, ...args) {
+                // Prüfen, ob das Event NICHT von einer verschachtelten Tabelle kommt
+                if (e.target !== e.currentTarget) {
+                    // Ignorieren, wenn das Event von einer Subtable kommt
+                    return;
+                }
+                console.log(...args);
+            });
+
+            $(document).on('all.bs.table', '#test', function (e, ...args) {
+
+                console.log(...args);
+            });
+
+
         })
 
     })
