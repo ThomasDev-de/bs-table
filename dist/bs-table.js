@@ -1623,11 +1623,11 @@
         }
 
         $('.' + wrapperClass)
-            .on('click' + namespace, '*', function (e) {
-                const $currentWrapper = $(this); // Aktueller Wrapper, der das Event ausgelöst hat
-                const $parentWrapper = $currentWrapper.closest(`.${wrapperClass}`); // Übergeordneter Wrapper (falls vorhanden)
+            .on('click' + namespace, '*:not(.bi)', function (e) {
+                const $currentWrapper = getClosestWrapper($(this)); // Aktueller Wrapper, der das Event ausgelöst hat
+                const $parentWrapper = getClosestWrapper($currentWrapper); // Übergeordneter Wrapper (falls vorhanden)
 
-                if ($parentWrapper.length && $parentWrapper[0] !== $currentWrapper[0]) {
+                if ($parentWrapper.length) {
                     // Wenn der aktuelle Wrapper in einem Parent-Wrapper ist, Ignoriere den Klick
                     e.stopPropagation();
                     return;
@@ -1788,13 +1788,19 @@
             })
             .on('click' + namespace, `[data-role="refresh"]`, function (e) {
                 e.preventDefault();
-                const $btn = getRelevantElement(e, 'button');
-                if (!$btn.length) return;
-                const wrapper = getClosestWrapper($btn);
-                if (wrapper.length) {
-                    e.stopPropagation();
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    refresh(table);
+
+                // Sorgt dafür, dass das nächstgelegene Element mit `[data-role="refresh"]` gefunden wird
+                const $btn = $(e.target).closest('[data-role="refresh"]');
+
+                if (!$btn.length) return; // Sicherstellen, dass ein Button gefunden wurde
+
+                // Hole den nächstgelegenen Wrapper
+                const $wrapper = getClosestWrapper($btn);
+
+                if ($wrapper.length) {
+                    e.stopPropagation(); // Stoppe Event-Bubbling
+                    const table = getTableByWrapperId($wrapper.attr('id')); // Tabelle anhand des Wrappers identifizieren
+                    refresh(table); // Tabelle aktualisieren
                 }
             })
             // .on('focusin' + namespace, `.${inputSearchClass}`, function (e) {
