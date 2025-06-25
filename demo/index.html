@@ -78,10 +78,14 @@
             const table = $('#table');
             table.bsTable({
                 classes: {
-                    table: 'table align-top table-sm table-bordered',
+                    table: 'table align-top table-sm table-bordered table-primary mb-0',
                     thead: 'table-dark h4 text-uppercase',
                     tbody: 'table-group-divider',
                     tfoot: 'table-warning',
+                },
+                onAll: function (eventName, theTable, ...args) {
+                    const message = `tableId: ${theTable.attr('id')},<br>event: ${eventName},<br>args: ${args.length}`;
+                    showToast(message, "primary");
                 },
                 toolbar: '#toolbar_table',
                 showFooter: false,
@@ -122,7 +126,7 @@
                         sidePagination: 'server',
                         paginationVAlign: 'bottom',
                         paginationHAlign: 'end',
-                        pageList: null,
+                        // pageList: null,
                         showRefresh: true,
                         pageSize: 5,
                         columns: [{
@@ -193,19 +197,51 @@
 
 
             // Direkte Bindung des Event-Handlers an die Tabelle
-            $(document).on('all.bs.table', '#table', function (e, ...args) {
-                // Prüfen, ob das Event NICHT von einer verschachtelten Tabelle kommt
-                if (e.target !== e.currentTarget) {
-                    // Ignorieren, wenn das Event von einer Subtable kommt
-                    return;
+            // $(document).on('all.bs.table', '#table', function (e, ...args) {
+            //     // Prüfen, ob das Event NICHT von einer verschachtelten Tabelle kommt
+            //     if (e.target !== e.currentTarget) {
+            //         // Ignorieren, wenn das Event von einer Subtable kommt
+            //         return;
+            //     }
+            //     console.log(...args);
+            //     const message = `${args[0]}`;
+            //     showToast(message, "primary");
+            // });
+
+
+
+
+            // Funktion zum Erstellen eines Toasts
+            function showToast(message, type = "info") {
+                const toastContainer = $("#toast-container");
+
+                // Falls der Toast-Container nicht vorhanden ist, erstellen wir ihn
+                if (!toastContainer.length) {
+                    $("body").append(`
+            <div id="toast-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+            </div>
+        `);
                 }
-                console.log(...args);
-            });
 
-            $(document).on('all.bs.table', '#test', function (e, ...args) {
+                // Hinzufügen des Toasts
+                const toastHTML = `
+        <div class="toast align-items-center text-bg-${type} border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
 
-                console.log(...args);
-            });
+                $("#toast-container").append(toastHTML);
+
+                // Bootstrap-Toast initialisieren und anzeigen
+                const toastElement = $("#toast-container .toast").last()[0];
+                const bsToast = new bootstrap.Toast(toastElement, { delay: 6000 });
+                bsToast.show();
+            }
 
 
         })

@@ -34,6 +34,8 @@
                 paginationprev: 'bi bi-chevron-left',
             },
             caption: null,
+            onAll(eventName, ...args) {
+            },
             rowStyle(row, index, $tr) {
             },
             queryParams(params) {
@@ -46,14 +48,21 @@
             },
             onLoadError() {
             },
+            onPreBody(rows, $table) {
+            },
             onPostBody(rows, $table) {
+            },
+            onPostFooter($tfoot, $table) {
+            },
+            onRefresh(params) {
+            },
+            onSort(name, order) {
             },
             onClickCell(field, value, row, $td) {
             },
             onClickRow(row, $tr, field) {
             },
             onCheck(row, $input) {
-
             },
             onCheckAll() {
             },
@@ -191,7 +200,7 @@
         }
     }
 
-    function refresh($table, options = null) {
+    function refresh($table, options = null, triggerRefresh = false) {
         const settings = getSettings($table);
         let silent = false;
         let pageNumber = settings.pageNumber ?? 1;
@@ -232,9 +241,13 @@
             showLoading($table);
         }
 
-        fetchData($table)
+        fetchData($table, triggerRefresh)
             .then(() => {
-                renderTable($table, silent); // Tabelle aktualisieren
+                triggerEvent($table, 'load-success', $table.data('response'));
+                if (typeof settings.onLoadSuccess === 'function') {
+                    settings.onLoadSuccess($table.data('response'));
+                }
+                renderTable($table);
             })
             .catch(error => {
                 console.error("Fehler beim Abrufen der Daten:", error);
@@ -244,7 +257,7 @@
             })
     }
 
-    function fetchData($table) {
+    function fetchData($table, triggerRefresh = false) {
         const settings = getSettings($table);
         if (settings.debug) {
             console.groupCollapsed("fetchData");
@@ -306,6 +319,13 @@
                 params = settings.queryParams(params);
                 if (settings.debug) {
                     console.log("Zusätzliche Query-Parameter:", params); // DEBUG
+                }
+            }
+
+            if (triggerRefresh) {
+                triggerEvent($table, 'refresh', params);
+                if (typeof settings.onRefresh === 'function') {
+                    settings.onRefresh(params);
                 }
             }
 
@@ -516,6 +536,8 @@
             class: wrapperClass + ' position-relative',
             id: wrapperId,
         }).insertAfter($table);
+        const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
+        $wrapper.attr('data-child', isChild);
         $table.attr('data-wrapper', wrapperId);
 
         // Setze CSS-Klassen auf die Tabelle
@@ -752,11 +774,7 @@
             }
         }
 
-        // Nur die Daten der aktuellen Seite an onPostBody übergeben
-        triggerEvent($table, 'post-body', currentPageData, $table);
-        if (typeof settings.onPostBody === 'function') {
-            settings.onPostBody(currentPageData, $table);
-        }
+
     }
 
     function createPaginationDetails($table, totalRows) {
@@ -1148,9 +1166,9 @@
         if (typeof settings.classes === 'object') {
             tableClasses = settings.classes.tfoot;
         }
+        const $tfoot = $table.find('tfoot').empty().addClass(tableClasses);
         if (columns && columns.length) {
 
-            const $tfoot = $table.find('tfoot').empty().addClass(tableClasses);
             const $tr = $('<tr></tr>').appendTo($tfoot);
             const columnWithInput =
                 columns.find(column => column.checkbox === true) ||
@@ -1169,10 +1187,21 @@
                 const $td = $('<td>', {html: value}).appendTo($tr);
             })
         }
+
+        // Nur die Daten der aktuellen Seite an onPostBody übergeben
+        triggerEvent($table, 'post-footer', $tfoot, $table);
+        if (typeof settings.onPostFooter === 'function') {
+            settings.onPostFooter($tfoot, $table);
+        }
     }
 
     function buildTableBody($table, rows) {
         const settings = getSettings($table);
+        // Nur die Daten der aktuellen Seite an onPostBody übergeben
+        triggerEvent($table, 'pre-body', rows, $table);
+        if (typeof settings.onPreBody === 'function') {
+            settings.onPreBody(rows, $table);
+        }
         const hasColumns = settings.columns && settings.columns.length;
         const columns = hasColumns ? settings.columns : [];
         const hasCheckbox = columns.some(column => column.checkbox === true);
@@ -1210,6 +1239,12 @@
                 class: 'text-center',
                 html: settings.formatNoMatches(),
             }).appendTo($tr);
+        }
+
+        // Nur die Daten der aktuellen Seite an onPostBody übergeben
+        triggerEvent($table, 'post-body', rows, $table);
+        if (typeof settings.onPostBody === 'function') {
+            settings.onPostBody(rows, $table);
         }
     }
 
@@ -1536,6 +1571,11 @@
             settings.sortName = null;
         }
 
+        triggerEvent($table, 'sort', settings.sortName, settings.sortOrder);
+
+        if (typeof settings.onSort === 'function') {
+            settings.onSort(settings.sortName, settings.sortOrder);
+        }
         setSettings($table, settings);
     }
 
@@ -1572,16 +1612,15 @@
 
     function triggerEvent($table, eventName, ...args) {
         const targetTable = $table[0]; // Aktuelles Tabellen-Element
-        const eventNamespace = '.bs.table';
-        const $wrapper = $table.closest(`.${wrapperClass}`); // Den nächstgelegenen Wrapper um die Tabelle finden
+        const $wrapper = getClosestWrapper($table); // Den nächstgelegenen Wrapper um die Tabelle finden
 
         // Namespace korrekt ergänzen
-        const event = $.Event(eventName + eventNamespace, {
+        const event = $.Event(eventName + namespace, {
             target: targetTable, // Ziel als aktuelles Tabellenobjekt setzen
         });
 
         // Prüfen, ob das Event innerhalb des aktuellen Wrappers stattfindet
-        const outerWrapper = $wrapper.closest(`.${wrapperClass}`);
+        const outerWrapper = getClosestWrapper($wrapper);
         if (outerWrapper.length && outerWrapper[0] !== $wrapper[0]) {
             // Falls der Event-Auslöser in einem übergeordneten Wrapper liegt, nichts tun
             return;
@@ -1591,18 +1630,36 @@
         $table.trigger(event, args);
 
         if (eventName !== 'all') {
-            const allEvent = $.Event('all' + eventNamespace, {
+            const allEvent = $.Event('all' + namespace, {
                 target: targetTable,
             });
-
-            $table.trigger(allEvent, [eventName, ...args]);
+            const settings = getSettings($table);
+            $table.trigger(allEvent, [eventName + namespace, ...args]);
+            if (typeof settings.onAll === 'function') {
+                settings.onAll(eventName + namespace, $table, ...args);
+            }
         }
     }
 
 
-
     function getTableByWrapperId(wrapperId) {
         return $(`table[data-wrapper="${wrapperId}"`);
+    }
+
+    function handleClickOnPaginationSize($table, $a) {
+        const settings = getSettings($table);
+        const response = $table.data('response');
+        settings.pageSize = parseInt($a.data('page'));
+        const totalRows = response.total;
+        const maxPageNumber = Math.ceil(totalRows / settings.pageSize);
+
+        if (settings.pageNumber > maxPageNumber) {
+            console.warn(`Page ${settings.pageNumber} is invalid. Falling back to last page (${maxPageNumber}).`);
+            settings.pageNumber = maxPageNumber;
+        }
+
+        setSettings($table, settings);
+        refresh($table);
     }
 
     function registerGlobalTableEvents() {
@@ -1623,25 +1680,36 @@
         }
 
         $('.' + wrapperClass)
-            .on('click' + namespace, '*:not(.bi)', function (e) {
-                const $currentWrapper = getClosestWrapper($(this)); // Aktueller Wrapper, der das Event ausgelöst hat
-                const $parentWrapper = getClosestWrapper($currentWrapper); // Übergeordneter Wrapper (falls vorhanden)
-
-                if ($parentWrapper.length) {
-                    // Wenn der aktuelle Wrapper in einem Parent-Wrapper ist, Ignoriere den Klick
-                    e.stopPropagation();
-                    return;
-                }
-
-                // Hier den Klick-Event weiterverarbeiten falls nötig
-                console.log('Klick auf Wrapper:', $currentWrapper[0]);
+            .on([
+                'click' + namespace,
+                'change' + namespace,
+                'touchstart' + namespace,
+                'mousenter' + namespace,
+            ].join(' '), '[data-child="true"]', function (e) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
             })
             .on('click' + namespace, 'td', function (e) {
-                const $td = getRelevantElement(e, 'td');
-                if (!$td.length || $td.attr('data-role') === 'tableCellCheckbox') return;
-                e.stopPropagation();
+                const $td = getRelevantElement(e, 'td'); // Findet die relevante Tabelle oder Zelle
+                if (!$td.length || $td.attr('data-role') === 'tableCellCheckbox') {
+                    return; // Abbrechen, wenn keine Zelle oder `data-role` für Checkbox definiert
+                }
+
+                // Prüft den aktuellen Kontext (Wrapper) der geklickten Zelle
+                const childWrapper = getClosestWrapper($td); // Wrapper der Zelle
+                const overWrapper = getClosestWrapper(childWrapper); // Übergeordneter Wrapper
+
+                // Ist der aktuelle Kontekt ein `childWrapper` und nicht gleich wie der Parent-Wrapper?
+                if (overWrapper.length && overWrapper[0] !== childWrapper[0]) {
+                    console.log("Stopping propagation! Child Wrapper Click.");
+                    e.stopPropagation(); // Beendet das Event in Richtung Parent
+                    return; // Weiter nichts tun
+                }
+
+                // Hier normale Verarbeitung der Zelle oder des Events
                 onClickCellAndRow($td);
             })
+
             .on('change' + namespace, 'thead [data-role="tableHeaderRadio"]', function (e) {
                 const $checkbox = getRelevantElement(e, 'input');
                 if (!$checkbox.length) return;
@@ -1728,135 +1796,89 @@
             })
             .on('change' + namespace, `tbody [data-role="tableCheckbox"]`, function (e) {
                 e.stopPropagation();
-                const $checkbox = getRelevantElement(e, 'input');
+                const $checkbox = $(e.currentTarget);
                 if (!$checkbox.length) return;
                 const wrapper = getClosestWrapper($checkbox);
-                // Tabelle ermitteln, in der das Event ausgelöst wurde
-                const eventTable = $checkbox.closest('table');
-                const wrapperTable = getTableByWrapperId(wrapper.attr('id')); // Erste Tabelle im aktuellen Wrapper
-
-                if (wrapper.length && eventTable[0] === wrapperTable[0]) {
-                    const $tr = $checkbox.closest('tr');
-                    const isChecked = $checkbox.is(':checked');
-                    const settings = getSettings(eventTable);
-                    const row = $tr.data('row');
-                    if (isChecked) {
-                        triggerEvent(eventTable, 'check', row, $checkbox);
-                        if (typeof settings.onCheck === 'function') {
-                            settings.onCheck(row, $checkbox);
-                        }
-                    } else {
-                        triggerEvent(eventTable, 'uncheck', row, $checkbox);
-                        if (typeof settings.onUncheck === 'function') {
-                            settings.onUncheck(row, $checkbox);
-                        }
+                const table = getTableByWrapperId(wrapper.attr('id'));
+                const $tr = $checkbox.closest('tr');
+                const isChecked = $checkbox.is(':checked');
+                const settings = getSettings(table);
+                const row = $tr.data('row');
+                if (isChecked) {
+                    triggerEvent(table, 'check', row, $checkbox);
+                    if (typeof settings.onCheck === 'function') {
+                        settings.onCheck(row, $checkbox);
                     }
-                    $tr.toggleClass('table-active');
+                } else {
+                    triggerEvent(table, 'uncheck', row, $checkbox);
+                    if (typeof settings.onUncheck === 'function') {
+                        settings.onUncheck(row, $checkbox);
+                    }
                 }
+                $tr.toggleClass('table-active');
             })
             .on('click' + namespace, `thead th[data-sortable="true"]`, function (e) {
-                const $th = getRelevantElement(e, 'th');
-                if (!$th.length) return;
+                const $th = $(e.currentTarget);
                 const wrapper = getClosestWrapper($th);
-                if (wrapper.length) {
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    handleTheadThClick(table, $th);
-                    refresh(table);
-                }
+                handleTheadThClick($th.closest('table'), $th);
+                const table = getTableByWrapperId(wrapper.attr('id'));
+                handleTheadThClick(table, $th);
+                refresh(table);
             })
             .on('click' + namespace, `[data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
                 e.preventDefault();
-                const $a = getRelevantElement(e, 'a');
+                const $a = $(e.currentTarget);
                 if (!$a.length) return;
                 const wrapper = getClosestWrapper($a);
-                if (wrapper.length) {
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    const settings = getSettings(table);
-                    const response = table.data('response');
-                    settings.pageSize = parseInt($a.data('page'));
-                    const totalRows = response.total;
-                    const maxPageNumber = Math.ceil(totalRows / settings.pageSize);
-
-                    if (settings.pageNumber > maxPageNumber) {
-                        console.warn(`Page ${settings.pageNumber} is invalid. Falling back to last page (${maxPageNumber}).`);
-                        settings.pageNumber = maxPageNumber;
-                    }
-
-                    setSettings(table, settings);
-                    refresh(table);
-                }
+                const table = getTableByWrapperId(wrapper.attr('id'));
+                handleClickOnPaginationSize(table, $a);
             })
             .on('click' + namespace, `[data-role="refresh"]`, function (e) {
                 e.preventDefault();
-
-                // Sorgt dafür, dass das nächstgelegene Element mit `[data-role="refresh"]` gefunden wird
-                const $btn = $(e.target).closest('[data-role="refresh"]');
-
-                if (!$btn.length) return; // Sicherstellen, dass ein Button gefunden wurde
-
-                // Hole den nächstgelegenen Wrapper
+                const $btn = $(e.currentTarget);
+                if (!$btn.length) return;
                 const $wrapper = getClosestWrapper($btn);
-
-                if ($wrapper.length) {
-                    e.stopPropagation(); // Stoppe Event-Bubbling
-                    const table = getTableByWrapperId($wrapper.attr('id')); // Tabelle anhand des Wrappers identifizieren
-                    refresh(table); // Tabelle aktualisieren
-                }
+                const table = getTableByWrapperId($wrapper.attr('id'));
+                refresh(table, null, true);
             })
-            // .on('focusin' + namespace, `.${inputSearchClass}`, function (e) {
-            //     const $btn = getRelevantElement(e, 'input');
-            //     if (!$btn.length) return;
-            //     const wrapper = getClosestWrapper($btn);
-            //     if (wrapper.length) {
-            //         e.stopPropagation();
-            //         return;
-            //     }
-            // })
             .on('input' + namespace, `.${inputSearchClass}`, function (e) {
-                const $searchField = getRelevantElement(e, 'input');
+                const $searchField = $(e.currentTarget);
                 if (!$searchField.length) return;
                 const wrapper = getClosestWrapper($searchField);
-                if (wrapper.length) {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        const table = getTableByWrapperId(wrapper.attr('id'));
-                        const settings = getSettings(table);
-                        settings.pageNumber = 1;
-                        setSettings(table, settings);
-                        refresh(table);
-                    }, 400);
-                }
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const table = getTableByWrapperId(wrapper.attr('id'));
+                    const settings = getSettings(table);
+                    settings.pageNumber = 1;
+                    setSettings(table, settings);
+                    refresh(table);
+                }, 600);
             })
             .on('click' + namespace, `.${wrapperPaginationClass} .page-link`, function (e) {
                 e.preventDefault();
                 const $pageLink = getRelevantElement(e, 'a');
                 if (!$pageLink.length) return;
                 const wrapper = getClosestWrapper($pageLink);
-                if (wrapper.length) {
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    const settings = getSettings(table);
-                    const response = table.data('response') || {rows: [], total: 0};
-                    const totalPages = Math.ceil(response.total / settings.pageSize);
-
-                    if ($pageLink.parent().hasClass('disabled') || $pageLink.parent().hasClass('active')) {
-                        return;
-                    }
-
-                    const action = $pageLink.attr('data-role') || $pageLink.html().toLowerCase().trim();
-                    if (action.includes('previous') || action.includes('left')) {
-                        settings.pageNumber = Math.max(1, settings.pageNumber - 1);
-                    } else if (action.includes('next') || action.includes('right')) {
-                        settings.pageNumber = Math.min(totalPages, settings.pageNumber + 1);
-                    } else {
-                        const pageNum = parseInt($pageLink.text().trim(), 10);
-                        if (!isNaN(pageNum)) {
-                            settings.pageNumber = pageNum;
-                        }
-                    }
-
-                    setSettings(table, settings);
-                    refresh(table);
+                const table = getTableByWrapperId(wrapper.attr('id'));
+                const settings = getSettings(table);
+                const response = table.data('response') || {rows: [], total: 0};
+                const totalPages = Math.ceil(response.total / settings.pageSize);
+                if ($pageLink.parent().hasClass('disabled') || $pageLink.parent().hasClass('active')) {
+                    return;
                 }
+                const action = $pageLink.attr('data-role') || $pageLink.html().toLowerCase().trim();
+                if (action.includes('previous') || action.includes('left')) {
+                    settings.pageNumber = Math.max(1, settings.pageNumber - 1);
+                } else if (action.includes('next') || action.includes('right')) {
+                    settings.pageNumber = Math.min(totalPages, settings.pageNumber + 1);
+                } else {
+                    const pageNum = parseInt($pageLink.text().trim(), 10);
+                    if (!isNaN(pageNum)) {
+                        settings.pageNumber = pageNum;
+                    }
+                }
+                setSettings(table, settings);
+                refresh(table);
             });
     }
 
