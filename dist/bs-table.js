@@ -1571,17 +1571,28 @@
     // }
 
     function triggerEvent($table, eventName, ...args) {
+        const targetTable = $table[0]; // Aktuelles Tabellen-Element
+        const eventNamespace = '.bs.table';
+        const $wrapper = $table.closest(`.${wrapperClass}`); // Den nächstgelegenen Wrapper um die Tabelle finden
+
         // Namespace korrekt ergänzen
-        const event = $.Event(eventName + '.bs.table', {
-            target: $table[0], // Sicherstellen, dass nur $table das Ziel ist
+        const event = $.Event(eventName + eventNamespace, {
+            target: targetTable, // Ziel als aktuelles Tabellenobjekt setzen
         });
 
-        // Trigger-Event nur auf der angegebenen Tabelle
+        // Prüfen, ob das Event innerhalb des aktuellen Wrappers stattfindet
+        const outerWrapper = $wrapper.closest(`.${wrapperClass}`);
+        if (outerWrapper.length && outerWrapper[0] !== $wrapper[0]) {
+            // Falls der Event-Auslöser in einem übergeordneten Wrapper liegt, nichts tun
+            return;
+        }
+
+        // Event-Trigger nur auf der aktuellen Tabelle (innerhalb des Wrappers)
         $table.trigger(event, args);
 
         if (eventName !== 'all') {
-            const allEvent = $.Event('all.bs.table', {
-                target: $table[0],
+            const allEvent = $.Event('all' + eventNamespace, {
+                target: targetTable,
             });
 
             $table.trigger(allEvent, [eventName, ...args]);
@@ -1612,6 +1623,19 @@
         }
 
         $('.' + wrapperClass)
+            .on('click' + namespace, '*', function (e) {
+                const $currentWrapper = $(this); // Aktueller Wrapper, der das Event ausgelöst hat
+                const $parentWrapper = $currentWrapper.closest(`.${wrapperClass}`); // Übergeordneter Wrapper (falls vorhanden)
+
+                if ($parentWrapper.length && $parentWrapper[0] !== $currentWrapper[0]) {
+                    // Wenn der aktuelle Wrapper in einem Parent-Wrapper ist, Ignoriere den Klick
+                    e.stopPropagation();
+                    return;
+                }
+
+                // Hier den Klick-Event weiterverarbeiten falls nötig
+                console.log('Klick auf Wrapper:', $currentWrapper[0]);
+            })
             .on('click' + namespace, 'td', function (e) {
                 const $td = getRelevantElement(e, 'td');
                 if (!$td.length || $td.attr('data-role') === 'tableCellCheckbox') return;
@@ -1768,10 +1792,20 @@
                 if (!$btn.length) return;
                 const wrapper = getClosestWrapper($btn);
                 if (wrapper.length) {
+                    e.stopPropagation();
                     const table = getTableByWrapperId(wrapper.attr('id'));
                     refresh(table);
                 }
             })
+            // .on('focusin' + namespace, `.${inputSearchClass}`, function (e) {
+            //     const $btn = getRelevantElement(e, 'input');
+            //     if (!$btn.length) return;
+            //     const wrapper = getClosestWrapper($btn);
+            //     if (wrapper.length) {
+            //         e.stopPropagation();
+            //         return;
+            //     }
+            // })
             .on('input' + namespace, `.${inputSearchClass}`, function (e) {
                 const $searchField = getRelevantElement(e, 'input');
                 if (!$searchField.length) return;
