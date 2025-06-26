@@ -10,7 +10,6 @@
     }
   ],
   "require": {
-    "wenzhixin/bootstrap-table" : "1.24.1",
     "twbs/bootstrap": "^5",
     "components/jquery": "^3",
     "twbs/bootstrap-icons": "^1"
