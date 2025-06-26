@@ -7,16 +7,15 @@
             classes: 'table',
             toolbar: null,
             pagination: true,
-            sidePagination: 'server',
+            sidePagination: 'client',
             paginationVAlign: 'bottom',
             paginationHAlign: 'end',
             pageNumber: 1,
-            search: true,
             pageSize: 10,
             pageList: [5, 10, 25, 50, 100, 200, 'All'],
+            search: true,
             sortName: null,
             sortOrder: 'asc',
-            multipleSort: [],
             showRefresh: true,
             showHeader: true,
             showFooter: true,
@@ -103,18 +102,7 @@
             if (!settings.columns || !Array.isArray(settings.columns)) {
                 settings.columns = [];
             }
-            const sortArray = [];
-            settings.columns.forEach(column => {
-                if (column.field && column.sortable === true) {
-                    const selected = column.field === settings.sortName;
-                    settings.multipleSort.push({
-                        sort: selected ? 1 : null,
-                        selected: selected,
-                        field: column.field,
-                        order: selected ? settings.sortOrder ?? 'asc' : ''
-                    })
-                }
-            })
+
             const bsTable = {
                 settings: settings,
             };
@@ -185,17 +173,19 @@
             caption.html(captionText);
         }
         if (isObject) {
-            if (stringOrObject.hasOwnProperty('onTop') && stringOrObject.onTop === true) {
-                caption.addClass('caption-top');
-            } else {
-                caption.removeClass('caption-top');
-            }
+
             if (stringOrObject.hasOwnProperty('classes') && typeof stringOrObject.classes === 'string') {
                 // Entferne alle vorhandenen Klassen aus dem Element
                 caption.attr('class', '');
 
                 // Füge die neue Klasse hinzu
                 caption.addClass(stringOrObject.classes);
+            }
+
+            if (stringOrObject.hasOwnProperty('onTop') && stringOrObject.onTop === true) {
+                caption.addClass('caption-top');
+            } else {
+                caption.removeClass('caption-top');
             }
         }
     }
@@ -1075,77 +1065,6 @@
         }
     }
 
-    function setNextSortStatus($table, field) {
-        const settings = getSettings($table);
-        const el = settings.multipleSort.find(sort => sort.field === field);
-
-        if (el) {
-            if (el.order === 'asc') {
-                el.order = 'desc';
-                el.icon = settings.icons.sortDesc;
-                el.selected = true;
-                settings.sortOrder = 'desc';
-                settings.sortName = field;
-            } else if (el.order === 'desc') {
-                el.order = '';
-                el.icon = settings.icons.sortNone;
-                el.selected = false;
-                settings.sortOrder = null;
-                settings.sortName = null;
-            } else {
-                el.order = 'asc';
-                el.icon = settings.icons.sortAsc;
-                el.selected = true;
-                settings.sortOrder = 'asc';
-                settings.sortName = field;
-            }
-
-            // Setze ein Hilfsattribut, um die zuletzt angeklickte Spalte zu markieren
-            if (el.selected) {
-                el.lastSelected = Date.now(); // Aktueller Zeitstempel
-            } else {
-                el.lastSelected = null; // Zurücksetzen, wenn nicht mehr ausgewählt
-            }
-
-            // Aktualisiere die Sortierlogik
-            updateSortOrder(settings.multipleSort);
-
-            // Hilfsattribute `lastSelected` entfernen
-            settings.multipleSort.forEach(sort => delete sort.lastSelected);
-
-            // Speichere die geänderten Einstellungen
-            setSettings($table, settings);
-        }
-    }
-
-    function updateSortOrder(multipleSort) {
-        let sortIndex = 1;
-
-        // Sortiere das Array nach den `selected`- und `lastSelected`-Attributen
-        multipleSort.sort((a, b) => {
-            // Priorität 1: `selected` zuerst (true vor false)
-            if (a.selected !== b.selected) {
-                return b.selected - a.selected;
-            }
-
-            // Priorität 2: Innerhalb der `selected`-Gruppe, nach `lastSelected` (höherer Timestamp = weiter hinten)
-            if (a.selected && b.selected) {
-                return (a.lastSelected || 0) - (b.lastSelected || 0);
-            }
-
-            return 0; // Keine Änderung für nicht selektierte Spalten
-        });
-
-        // Neue Sort-Werte vergeben
-        multipleSort.forEach(sort => {
-            if (sort.selected) {
-                sort.sort = sortIndex++;
-            } else {
-                sort.sort = null; // `sort` zurücksetzen, wenn nicht ausgewählt
-            }
-        });
-    }
-
     function getIconBySortOrder($table, sortOrder) {
         const settings = getSettings($table);
         if (sortOrder === 'asc') {
@@ -1519,23 +1438,25 @@
         return false; // All other values are considered non-empty (including numbers)
     }
 
-    function handleTheadThClick($table, $current) {
+    function handleSortOnTheadTh($th) {
+        const wrapper = getClosestWrapper($th);
+        const $table = getTableByWrapperId(wrapper.attr('id'));
         const settings = getSettings($table);
         const allSortableHeaders = $table.find('thead:first th[data-sortable="true"]')
-        const filteredHeaders = allSortableHeaders.not($current);
+        const filteredHeaders = allSortableHeaders.not($th);
 
         filteredHeaders.each(function (i, el) {
-            const $th = $(el);
-            $th.attr('data-order', '');
-            const $icon = $th.find('i.bs-table-icon');
+            const $otherTh = $(el);
+            $otherTh.attr('data-order', '');
+            const $icon = $otherTh.find('i.bs-table-icon');
             $icon.removeClass(settings.icons.sortNone);
             $icon.removeClass(settings.icons.sortAsc);
             $icon.removeClass(settings.icons.sortDesc);
             $icon.addClass(settings.icons.sortNone);
         });
 
-        if ($current.length > 0) {
-            let order = $current.attr('data-order');
+        if ($th.length > 0) {
+            let order = $th.attr('data-order');
             if (order === 'asc') {
                 order = 'desc';
             } else if (order === 'desc') {
@@ -1543,12 +1464,12 @@
             } else {
                 order = 'asc';
             }
-            const $iconCurrent = $current.find('i.bs-table-icon');
-            const field = $current.attr('data-field');
+            const $iconCurrent = $th.find('i.bs-table-icon');
+            const field = $th.attr('data-field');
             $iconCurrent.removeClass(settings.icons.sortNone);
             $iconCurrent.removeClass(settings.icons.sortAsc);
             $iconCurrent.removeClass(settings.icons.sortDesc);
-            $current.attr('data-order', order);
+            $th.attr('data-order', order);
             settings.sortOrder = order === '' ? null : order;
             settings.sortName = field;
             settings.pageNumber = 1;
@@ -1577,6 +1498,7 @@
             settings.onSort(settings.sortName, settings.sortOrder);
         }
         setSettings($table, settings);
+        refresh($table);
     }
 
     function onClickCellAndRow($td) {
@@ -1601,43 +1523,33 @@
         }
     }
 
-    // function triggerEvent($table, eventName, ...args) {
-    //     $table.trigger(eventName + namespace, args);
-    //
-    //     // Nur nach dem spezifischen Event das 'all' Event auslösen
-    //     if (eventName !== 'all') {
-    //         $table.trigger('all' + namespace, [eventName + namespace, ...args, $table]);
-    //     }
-    // }
-
     function triggerEvent($table, eventName, ...args) {
-        const targetTable = $table[0]; // Aktuelles Tabellen-Element
-        const $wrapper = getClosestWrapper($table); // Den nächstgelegenen Wrapper um die Tabelle finden
+        const targetTable = $table[0];
+        const settings = getSettings($table);
+        const isSubTable = $table.closest(`.${wrapperClass}[data-child="true"]`).length > 0;
+        const hasSubTables = getClosestWrapper($table).find(`.${wrapperClass}[data-child="true"]`).length > 0;
+        // Event-Namespace erweitern, wenn es sich um eine Subtable handelt
 
-        // Namespace korrekt ergänzen
-        const event = $.Event(eventName + namespace, {
-            target: targetTable, // Ziel als aktuelles Tabellenobjekt setzen
-        });
-
-        // Prüfen, ob das Event innerhalb des aktuellen Wrappers stattfindet
-        const outerWrapper = getClosestWrapper($wrapper);
-        if (outerWrapper.length && outerWrapper[0] !== $wrapper[0]) {
-            // Falls der Event-Auslöser in einem übergeordneten Wrapper liegt, nichts tun
-            return;
+        const bsTableDatas = {
+            table: targetTable,
+            settings: settings,
+            isChildTable: isSubTable,
+            hasChildTables: hasSubTables,
         }
 
-        // Event-Trigger nur auf der aktuellen Tabelle (innerhalb des Wrappers)
-        $table.trigger(event, args);
+        const event = $.Event(eventName + namespace, {
+            target: targetTable,
+            bsTable: bsTableDatas,
+        });
 
+        $table.trigger(event, args);
+        event.stopPropagation();
+
+        // Globales "all.bs.table"-Event
         if (eventName !== 'all') {
-            const allEvent = $.Event('all' + namespace, {
-                target: targetTable,
-            });
-            const settings = getSettings($table);
+            const allEvent = $.Event(`all${namespace}`, { target: targetTable });
             $table.trigger(allEvent, [eventName + namespace, ...args]);
-            if (typeof settings.onAll === 'function') {
-                settings.onAll(eventName + namespace, $table, ...args);
-            }
+            allEvent.stopPropagation();
         }
     }
 
@@ -1662,6 +1574,116 @@
         refresh($table);
     }
 
+    function handleCheckboxChange($checkbox) {
+        if (!$checkbox.length) return;
+        const wrapper = getClosestWrapper($checkbox);
+        const table = getTableByWrapperId(wrapper.attr('id'));
+        const $tr = $checkbox.closest('tr');
+        const isChecked = $checkbox.is(':checked');
+        const settings = getSettings(table);
+        const row = $tr.data('row');
+        if (isChecked) {
+            triggerEvent(table, 'check', row, $checkbox);
+            if (typeof settings.onCheck === 'function') {
+                settings.onCheck(row, $checkbox);
+            }
+        } else {
+            triggerEvent(table, 'uncheck', row, $checkbox);
+            if (typeof settings.onUncheck === 'function') {
+                settings.onUncheck(row, $checkbox);
+            }
+        }
+        $tr.toggleClass('table-active');
+    }
+
+    function handleRadiosByRadioChange($checkbox) {
+        if (!$checkbox.length) return;
+        const wrapper = getClosestWrapper($checkbox);
+        const table = getTableByWrapperId(wrapper.attr('id'));
+        const $tr = $checkbox.closest('tr');
+        const row = $tr.data('row');
+        const value = $checkbox.attr('value');
+        const settings = getSettings(table);
+        const headerCheckbox = table.find(`[data-role="tableHeaderRadio"]:first`);
+
+        headerCheckbox.prop('checked', true).prop('disabled', false);
+
+        table.find('[data-role="tableRadio"]').each(function (_, el) {
+            const radio = $(el);
+            if (getClosestWrapper(radio)[0] === wrapper[0]) {
+                const radioTr = radio.closest('tr');
+                radioTr.removeClass('table-active');
+                if (radio.is(':checked')) {
+                    radioTr.addClass('table-active');
+                    triggerEvent(table, 'check', radioTr.data('row'), radio);
+                    if (typeof settings.onCheck === 'function') {
+                        settings.onCheck(radioTr.data('row'), radio);
+                    }
+                }
+            }
+        });
+    }
+
+    function handleCheckOnOrNone($checkbox) {
+        if (!$checkbox.length) return;
+        const wrapper = getClosestWrapper($checkbox);
+        const table = getTableByWrapperId(wrapper.attr('id'));
+
+        const $tr = $checkbox.closest('tr');
+        const settings = getSettings(table);
+        const isChecked = $checkbox.prop('checked');
+        table.find('[data-role="tableCheckbox"]').each(function (_, el) {
+            const radio = $(el);
+            if (getClosestWrapper(radio)[0] === wrapper[0]) {
+                radio.prop('checked', isChecked);
+                if (isChecked) {
+                    radio.closest('tr').addClass('table-active');
+                } else {
+                    radio.closest('tr').removeClass('table-active');
+                }
+            }
+        });
+        if (isChecked) {
+            triggerEvent(table, 'check-all');
+            if (typeof settings.onCheckAll === 'function') {
+                settings.onCheckAll();
+            }
+        } else {
+            triggerEvent(table, 'uncheck-all');
+            if (typeof settings.onUncheckAll === 'function') {
+                settings.onUncheckAll();
+            }
+        }
+    }
+
+// Funktion zur Suche auslagern für besseren Codefluss
+    function performSearch(wrapper) {
+        const table = getTableByWrapperId(wrapper.attr('id'));
+        const settings = getSettings(table);
+        settings.pageNumber = 1;
+        setSettings(table, settings);
+        refresh(table); // Tabelle aktualisieren
+    }
+
+    function handleUncheckRadios($checkbox) {
+        if (!$checkbox.length) return;
+        const wrapper = getClosestWrapper($checkbox);
+        const $tr = $checkbox.closest('tr');
+        const table = getTableByWrapperId(wrapper.attr('id'));
+        const settings = getSettings(table);
+        table.find('[data-role="tableRadio"]').each(function (_, el) {
+            const radio = $(el);
+            if (getClosestWrapper(radio)[0] === wrapper[0]) {
+                radio.prop('checked', false);
+                radio.closest('tr').removeClass('table-active');
+            }
+        });
+        triggerEvent(table, 'uncheck-all');
+        if (typeof settings.onUncheckAll === 'function') {
+            settings.onUncheckAll();
+        }
+        $checkbox.prop('disabled', true);
+    }
     function registerGlobalTableEvents() {
         let searchTimeout;
 
@@ -1690,143 +1712,45 @@
                 e.stopImmediatePropagation();
             })
             .on('click' + namespace, 'td', function (e) {
-                const $td = getRelevantElement(e, 'td'); // Findet die relevante Tabelle oder Zelle
-                if (!$td.length || $td.attr('data-role') === 'tableCellCheckbox') {
-                    return; // Abbrechen, wenn keine Zelle oder `data-role` für Checkbox definiert
-                }
-
-                // Prüft den aktuellen Kontext (Wrapper) der geklickten Zelle
-                const childWrapper = getClosestWrapper($td); // Wrapper der Zelle
-                const overWrapper = getClosestWrapper(childWrapper); // Übergeordneter Wrapper
-
-                // Ist der aktuelle Kontekt ein `childWrapper` und nicht gleich wie der Parent-Wrapper?
-                if (overWrapper.length && overWrapper[0] !== childWrapper[0]) {
-                    console.log("Stopping propagation! Child Wrapper Click.");
-                    e.stopPropagation(); // Beendet das Event in Richtung Parent
-                    return; // Weiter nichts tun
-                }
-
-                // Hier normale Verarbeitung der Zelle oder des Events
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $td = $(e.currentTarget);
                 onClickCellAndRow($td);
             })
-
             .on('change' + namespace, 'thead [data-role="tableHeaderRadio"]', function (e) {
-                const $checkbox = getRelevantElement(e, 'input');
-                if (!$checkbox.length) return;
-                const wrapper = getClosestWrapper($checkbox);
-                if (wrapper.length) {
-                    e.stopPropagation();
-                    const $tr = $checkbox.closest('tr');
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    table.find('[data-role="tableRadio"]').each(function (_, el) {
-                        const radio = $(el);
-                        if (getClosestWrapper(radio)[0] === wrapper[0]) {
-                            radio.prop('checked', false);
-                            radio.closest('tr').removeClass('table-active');
-                        }
-                    });
-                    $checkbox.prop('disabled', true);
-                }
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $checkbox = $(e.currentTarget);
+                handleUncheckRadios($checkbox)
             })
             .on('change' + namespace, `thead [data-role="tableHeaderCheckbox"]`, function (e) {
-                const $checkbox = getRelevantElement(e, 'input');
-                if (!$checkbox.length) return;
-                const wrapper = getClosestWrapper($checkbox);
-                if (wrapper.length) {
-                    e.stopPropagation();
-                    const $tr = $checkbox.closest('tr');
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    const settings = getSettings(table);
-                    const isChecked = $checkbox.prop('checked');
-                    table.find('[data-role="tableCheckbox"]').each(function (_, el) {
-                        const radio = $(el);
-                        if (getClosestWrapper(radio)[0] === wrapper[0]) {
-                            radio.prop('checked', isChecked);
-                            if (isChecked) {
-                                radio.closest('tr').addClass('table-active');
-                            } else {
-                                radio.closest('tr').removeClass('table-active');
-                            }
-                        }
-                    });
-                    if (isChecked) {
-                        triggerEvent(table, 'check-all');
-                        if (typeof settings.onCheckAll === 'function') {
-                            settings.onCheckAll();
-                        }
-                    } else {
-                        triggerEvent(table, 'uncheck-all');
-                        if (typeof settings.onUncheckAll === 'function') {
-                            settings.onUncheckAll();
-                        }
-                    }
-                }
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $checkbox = $(e.currentTarget);
+                handleCheckOnOrNone($checkbox);
             })
             .on('change' + namespace, `table tbody [data-role="tableRadio"]`, function (e) {
-                const $checkbox = getRelevantElement(e, 'input');
-                if (!$checkbox.length) return;
-                const wrapper = getClosestWrapper($checkbox);
-                if (wrapper.length) {
-                    e.stopPropagation();
-                    const $tr = $checkbox.closest('tr');
-                    const row = $tr.data('row');
-                    const value = $checkbox.attr('value');
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    const settings = getSettings(table);
-                    const headerCheckbox = table.find(`[data-role="tableHeaderRadio"]:first`);
-                    if (headerCheckbox.length && getClosestWrapper(headerCheckbox)[0] === wrapper[0]) {
-                        headerCheckbox.prop('checked', true).prop('disabled', false);
-
-                        table.find('[data-role="tableRadio"]').each(function (_, el) {
-                            const radio = $(el);
-                            if (getClosestWrapper(radio)[0] === wrapper[0]) {
-                                const radioTr = radio.closest('tr');
-                                radioTr.removeClass('table-active');
-                                if (radio.is(':checked')) {
-                                    radioTr.addClass('table-active');
-                                    triggerEvent(table, 'check', radioTr.data('row'), radio);
-                                    if (typeof settings.onCheck === 'function') {
-                                        settings.onCheck(radioTr.data('row'), radio);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $checkbox = $(e.currentTarget);
+                handleRadiosByRadioChange($checkbox);
             })
             .on('change' + namespace, `tbody [data-role="tableCheckbox"]`, function (e) {
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 const $checkbox = $(e.currentTarget);
-                if (!$checkbox.length) return;
-                const wrapper = getClosestWrapper($checkbox);
-                const table = getTableByWrapperId(wrapper.attr('id'));
-                const $tr = $checkbox.closest('tr');
-                const isChecked = $checkbox.is(':checked');
-                const settings = getSettings(table);
-                const row = $tr.data('row');
-                if (isChecked) {
-                    triggerEvent(table, 'check', row, $checkbox);
-                    if (typeof settings.onCheck === 'function') {
-                        settings.onCheck(row, $checkbox);
-                    }
-                } else {
-                    triggerEvent(table, 'uncheck', row, $checkbox);
-                    if (typeof settings.onUncheck === 'function') {
-                        settings.onUncheck(row, $checkbox);
-                    }
-                }
-                $tr.toggleClass('table-active');
+                handleCheckboxChange($checkbox);
             })
             .on('click' + namespace, `thead th[data-sortable="true"]`, function (e) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 const $th = $(e.currentTarget);
-                const wrapper = getClosestWrapper($th);
-                handleTheadThClick($th.closest('table'), $th);
-                const table = getTableByWrapperId(wrapper.attr('id'));
-                handleTheadThClick(table, $th);
-                refresh(table);
+                handleSortOnTheadTh($th);
             })
             .on('click' + namespace, `[data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 const $a = $(e.currentTarget);
                 if (!$a.length) return;
                 const wrapper = getClosestWrapper($a);
@@ -1835,6 +1759,8 @@
             })
             .on('click' + namespace, `[data-role="refresh"]`, function (e) {
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 const $btn = $(e.currentTarget);
                 if (!$btn.length) return;
                 const $wrapper = getClosestWrapper($btn);
@@ -1842,21 +1768,29 @@
                 refresh(table, null, true);
             })
             .on('input' + namespace, `.${inputSearchClass}`, function (e) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 const $searchField = $(e.currentTarget);
                 if (!$searchField.length) return;
                 const wrapper = getClosestWrapper($searchField);
+
                 clearTimeout(searchTimeout);
+
                 searchTimeout = setTimeout(() => {
-                    const table = getTableByWrapperId(wrapper.attr('id'));
-                    const settings = getSettings(table);
-                    settings.pageNumber = 1;
-                    setSettings(table, settings);
-                    refresh(table);
+                    performSearch(wrapper);
                 }, 600);
+
+                if (e.key === "Enter") {
+                    e.preventDefault(); // Prevent default behavior (e.g., form submit)
+                    clearTimeout(searchTimeout);
+                    performSearch(wrapper);
+                }
             })
             .on('click' + namespace, `.${wrapperPaginationClass} .page-link`, function (e) {
                 e.preventDefault();
-                const $pageLink = getRelevantElement(e, 'a');
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $pageLink = $(e.currentTarget);
                 if (!$pageLink.length) return;
                 const wrapper = getClosestWrapper($pageLink);
                 const table = getTableByWrapperId(wrapper.attr('id'));

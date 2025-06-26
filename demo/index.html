@@ -11,8 +11,13 @@
 <div class="container py-5">
     <h1>$.fn.bsTable</h1>
     <hr>
-    <div class="" id="toolbar_table"><h2 class="mb-0">Demo Table</h2></div>
-    <table id="table"></table>
+    <div class="d-flex gap-2">
+        <div class="w-75">
+            <div class="" id="toolbar_table"><h2 class="mb-0">Demo Table</h2></div>
+            <table id="table"></table>
+        </div>
+        <pre class="w-25">text</pre>
+    </div>
 
 </div>
 <script src="../vendor/components/jquery/jquery.min.js"></script>
@@ -83,10 +88,7 @@
                     tbody: 'table-group-divider',
                     tfoot: 'table-warning',
                 },
-                onAll: function (eventName, theTable, ...args) {
-                    const message = `tableId: ${theTable.attr('id')},<br>event: ${eventName},<br>args: ${args.length}`;
-                    showToast(message, "primary");
-                },
+
                 toolbar: '#toolbar_table',
                 showFooter: false,
                 showHeader: true,
@@ -105,7 +107,8 @@
                     onTop: true,
                 },
                 onPostBody: function () {
-                    table.find('table').first().bsTable({
+                    const subTable = table.find('table').first()
+                    subTable.bsTable({
                         classes: {
                             table: 'table align-top table-sm table-danger mb-0',
                             tbody: 'table-group-divider',
@@ -117,6 +120,7 @@
                             });
                         },
                         caption: {
+                            classes: 'text-bg-dark px-2',
                             text: "Table with remote datas fetched from url as function",
                             onTop: true,
                         },
@@ -130,7 +134,7 @@
                         showRefresh: true,
                         pageSize: 5,
                         columns: [{
-                            checkbox: true,
+                            radio: true,
                             sortable: true,
                             title: 'ID2',
                             field: 'id',
@@ -155,6 +159,13 @@
 
                         }]
                     })
+
+                    // Globalen Event-Handler der Untertabelle isolieren
+                    // subTable.on('all.bs.table', function (e, ...args) {
+                    //     console.warn('[DEBUG] Event in Untertabelle ausgelöst:', { target: e.target, eventName: args[0] });
+                    //     // Events der verschachtelten Tabelle hier getrennt behandeln
+                    // });
+
                 },
                 columns: [
                     {
@@ -195,6 +206,17 @@
                 ]
             });
 
+            $(document).on('post-body.bs.table', '#table', function (e, ...args) {
+
+                if (e.target !== e.currentTarget) {
+                    console.log('[DEBUG] Event ignoriert, da Subtable: ' + $(e.target).attr('id'));
+                    return;
+                }
+                console.log(e.bsTable)
+                console.log('Tabelle mit id #' + $(e.target).attr('id') + ' hat gefeuert');
+                // console.table(args);
+            });
+
 
             // Direkte Bindung des Event-Handlers an die Tabelle
             // $(document).on('all.bs.table', '#table', function (e, ...args) {
@@ -207,8 +229,6 @@
             //     const message = `${args[0]}`;
             //     showToast(message, "primary");
             // });
-
-
 
 
             // Funktion zum Erstellen eines Toasts
@@ -235,16 +255,16 @@
         </div>
     `;
 
+                // $(toastHTML).appendTo(toastContainer);
                 $("#toast-container").append(toastHTML);
 
                 // Bootstrap-Toast initialisieren und anzeigen
                 const toastElement = $("#toast-container .toast").last()[0];
-                const bsToast = new bootstrap.Toast(toastElement, { delay: 6000 });
+                const bsToast = new bootstrap.Toast(toastElement, {delay: 6000});
                 bsToast.show();
             }
-
-
         })
+
 
     })
 </script>
