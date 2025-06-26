@@ -739,6 +739,12 @@
                 $pageListDropdown.prependTo($btnContainer);
             }
         }
+        const $columnSwitch = buildColumnVisibilityDropdown($table);
+        if ($btnContainer.find('[data-role="tableColumnVisibility"]:first').length > 0) {
+            $btnContainer.find('[data-role="tableColumnVisibility"]:first').replaceWith($columnSwitch);
+        } else {
+            $columnSwitch.prependTo($btnContainer);
+        }
 
         if ($btnContainer.find('.btn').length && settings.search === true) {
             // haben wir buttons und ein suchfeld, packe margin hinzu
@@ -801,24 +807,6 @@
             'aria-labelledby': 'dropdownPaginationPageSize'
         });
 
-        // Dropdown-Optionen hinzufügen
-        // settings.pageList
-        //     .filter(page => page === 'All' || page < totalRows)
-        //     .forEach(page => {
-        //         const value = page === 'All' ? 0 : page;
-        //         const isAll = value === 0;
-        //         const isActive = (isAll && pageSize === 0) || page === pageSize;
-        //         const text = isAll ? 'All' : page;
-        //         const $dropdownItem = $('<li>').append(
-        //             $('<a>', {
-        //                 class: `dropdown-item ${isActive ? 'active' : ''}`,
-        //                 href: '#',
-        //                 'data-page': value
-        //             }).text(text)
-        //         );
-        //         $dropdownMenu.append($dropdownItem);
-        //     });
-
         // Text für "rows per page"
         const $rowsPerPageText = $('<span>').text('');
 
@@ -875,6 +863,82 @@
 
         $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
         return $dropdownWrapper;
+    }
+
+    function buildColumnVisibilityDropdown($table) {
+        const settings = getSettings($table);
+
+        if (!settings.columns || !settings.columns.length) {
+            return null; // Keine Spalten vorhanden
+        }
+
+        // Haupt-Wrapper des Dropdowns
+        const $dropdownWrapper = $('<div>', {
+            'class': 'dropdown btn-group',
+            'data-role': 'tableColumnVisibility'
+        });
+
+        // Dropdown-Toggle-Button
+        const $dropdownToggle = $('<button>', {
+            'class': 'btn btn-secondary dropdown-toggle',
+            'type': 'button',
+            'id': 'dropdownColumnVisibility',
+            'data-bs-toggle': 'dropdown',
+            'aria-expanded': 'false'
+        }).html('Columns <i class="bi bi-list-task"></i>');
+
+        // Dropdown-Menü
+        const $dropdownMenu = $('<div>', {
+            'class': 'dropdown-menu',
+            'aria-labelledby': 'dropdownColumnVisibility'
+        });
+
+// Für jede Spalte eine Checkbox hinzufügen
+        settings.columns.forEach((column, index) => {
+            const isVisible = column.visible !== false;
+
+            // Überspringen von Spalten mit checkbox oder radio
+            if (column.checkbox || column.radio) return;
+
+            // Erstelle ein Menü-Item mit Divs
+            const $menuItem = $('<div>', { 'class': 'dropdown-item px-3' }).append(
+                $('<div>', { 'class': 'form-check d-flex align-items-center' }).append(
+                    $('<input>', {
+                        'class': 'form-check-input me-2', // Abstand zur Checkbox hinzufügen
+                        'type': 'checkbox',
+                        'id': `columnVisibility-${index}`,
+                        'data-column-index': index,
+                        'checked': isVisible
+                    }).on('change', function () {
+                        // Sichtbarkeit der Spalten ändern
+                        const columnIndex = $(this).data('column-index');
+                        const isChecked = $(this).is(':checked');
+                        settings.columns[columnIndex].visible = isChecked;
+                        updateTableVisibility($table, settings.columns);
+                    }),
+                    $('<label>', {
+                        'class': 'form-check-label mb-0', // Zentrierte und saubere Darstellung
+                        'for': `columnVisibility-${index}`
+                    }).text(column.title || column.field || `Column ${index + 1}`)
+                )
+            );
+
+            $dropdownMenu.append($menuItem);
+        });
+
+        $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
+        return $dropdownWrapper;
+    }
+
+
+    function updateTableVisibility($table, columns) {
+        const settings = getSettings($table);
+        settings.columns = columns;
+        setSettings($table, settings);
+        renderTable($table);
+        // Implementiere hier die Logik, um die Sichtbarkeit der Spalten in der Tabelle zu aktualisieren.
+        // Das könnte per DataTables, Bootstrap Table oder manueller DOM-Manipulation geschehen.
+        console.log('Aktualisiere Tabellenansicht basierend auf den Spalten:', columns);
     }
 
     function createPagination($table, totalRows) {
@@ -1096,14 +1160,15 @@
                 $('<td></td>').appendTo($tr);
             }
             columns.forEach(column => {
-                if (column.visible === false) {
-                    return;
-                }
+
                 let value = '';
                 if (typeof column.footerFormatter === 'function') {
                     value = column.footerFormatter(data);
                 }
                 const $td = $('<td>', {html: value}).appendTo($tr);
+                if (column.visible === false) {
+                    $td.addClass('d-none');
+                }
             })
         }
 
@@ -1143,9 +1208,7 @@
                 if (hasColumns) {
                     const isInputSet = buildCheckboxOrRadio($table, $tr, row);
                     settings.columns.forEach(column => {
-                        if (column.visible === false) {
-                            return;
-                        }
+
                         buildTableBodyTd(column, row, $tr);
                     })
                 }
@@ -1253,7 +1316,17 @@
         }
 
         // Filtert sichtbare Spalten, wenn onlyVisible true ist, sonst zählt alle.
-        return settings.columns.filter(column => !onlyVisible || column.visible !== false).length;
+        let columnCount = settings.columns.filter(column => !onlyVisible || column.visible !== false).length;
+
+        // Prüft, ob mindestens eine Spalte checkbox: true oder radio: true ist.
+        const hasCheckboxOrRadio = settings.columns.some(column => column.checkbox === true || column.radio === true);
+
+        // Wenn eine solche Spalte existiert, rechne 1 hinzu
+        if (hasCheckboxOrRadio) {
+            columnCount += 1;
+        }
+
+        return columnCount;
     }
 
     function buildTableBodyTd(column, row, $tr) {
@@ -1277,6 +1350,10 @@
             const $td = $('<td>', {
                 class: classList.join(' '),
             }).appendTo($tr);
+
+            if (column.visible === false) {
+                $td.addClass('d-none');
+            }
 
             $td.data('column', column);
             // $td.data('row', row);
