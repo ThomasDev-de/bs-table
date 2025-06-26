@@ -18,7 +18,7 @@
             sortOrder: 'asc',
             showRefresh: true,
             showHeader: true,
-            showFooter: true,
+            showFooter: false,
             url: null,
             data: null,
             columns: [],
@@ -32,9 +32,6 @@
                 paginationNext: 'bi bi-chevron-right',
                 paginationprev: 'bi bi-chevron-left',
             },
-            caption: null,
-            onAll(eventName, ...args) {
-            },
             rowStyle(row, index, $tr) {
             },
             queryParams(params) {
@@ -42,6 +39,9 @@
             },
             responseHandler(res) {
                 return res;
+            },
+            caption: null,
+            onAll(eventName, ...args) {
             },
             onLoadSuccess() {
             },
