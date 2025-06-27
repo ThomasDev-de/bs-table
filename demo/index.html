@@ -17,6 +17,7 @@
 <script src="../vendor/components/jquery/jquery.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-table.js"></script>
+<!--suppress JSUnresolvedReference -->
 <script>
     $(document).ready(function () {
 
@@ -73,7 +74,6 @@
         }
 
         getDatas().then(data => {
-
             const table = $('#table');
             table.bsTable({
                 classes: {
@@ -82,10 +82,10 @@
                     tbody: 'table-group-divider',
                     tfoot: 'table-warning',
                 },
-
                 toolbar: '#toolbar_table',
-                showFooter: false,
+                showFooter: true,
                 showHeader: true,
+                showColumns: true,
                 sortName: 'id',
                 sortOrder: 'asc',
                 search: true,
@@ -98,7 +98,6 @@
                 sidePagination: 'client',
                 caption: {
                     text: "Table with local datas",
-                    onTop: true,
                 },
                 onPostBody: function () {
                     const subTable = table.find('table').first()
@@ -114,7 +113,7 @@
                             });
                         },
                         caption: {
-                            classes: 'text-bg-dark px-2',
+                            classes: 'text-bg-dark px-2 bg-gradient',
                             text: "Table with remote datas fetched from url as function",
                             onTop: true,
                         },
@@ -124,47 +123,35 @@
                         sidePagination: 'server',
                         paginationVAlign: 'bottom',
                         paginationHAlign: 'end',
-                        // pageList: null,
+                        showFooter: true,
                         showRefresh: true,
+                        idField: 'id',
                         pageSize: 5,
                         columns: [{
                             radio: true,
-                            sortable: true,
-                            title: 'ID2',
-                            field: 'id',
-                            footerFormatter(dataRow) {
-                                const sumOfIds = dataRow.reduce((sum, row) => {
-                                    return sum + (row.id || 0); // Füge die ID hinzu, falls sie existiert, sonst 0
-                                }, 0);
-
-                                return '<span class="text-nowrap">Sum of IDs: ' + sumOfIds + '</span>';
-                            }
                         }, {
                             sortable: true,
                             title: 'Title2',
-                            field: 'title',
+                            field: 'title'
+                        }, {
+                            title: 'Price',
+                            field: 'price',
+                            align: 'right',
+                            falign: 'right',
+                            halign: 'right',
+                            sortable: true,
+                            formatter: formatMoney,
                             footerFormatter(dataRow) {
-                                const totalTitleLength = dataRow.reduce((lengthSum, row) => {
-                                    return lengthSum + (row.title ? row.title.length : 0); // Füge die Länge von title hinzu, falls vorhanden
+                                const sumOfIds = dataRow.reduce((sum, row) => {
+                                    return sum + (row.price || 0); // Füge die ID hinzu, falls sie existiert, sonst 0
                                 }, 0);
-
-                                return '<span class="text-nowrap">length: ' + totalTitleLength + ' character</span>';
+                                return '<span class="text-nowrap">Sum : ' + formatMoney(sumOfIds) + '</span>';
                             }
-
-                        }]
-                    })
-
-                    // Globalen Event-Handler der Untertabelle isolieren
-                    // subTable.on('all.bs.table', function (e, ...args) {
-                    //     console.warn('[DEBUG] Event in Untertabelle ausgelöst:', { target: e.target, eventName: args[0] });
-                    //     // Events der verschachtelten Tabelle hier getrennt behandeln
-                    // });
-
+                        },]
+                    });
                 },
                 columns: [
                     {
-                        visible: false,
-                        field: 'id',
                         checkbox: true,
                     },
                     {
@@ -185,9 +172,20 @@
                         class: '',
                         title: 'Body',
                         field: 'body',
+                    }, {
+                        field: 'price',
+                        align: 'right',
+                        formatter: formatMoney,
+                        footerFormatter(dataRow) {
+                            const sumOfIds = dataRow.reduce((sum, row) => {
+                                return sum + (row.price || 0); // Füge die ID hinzu, falls sie existiert, sonst 0
+                            }, 0);
+
+                            return '<span class="text-nowrap">Sum : ' + formatMoney(sumOfIds) + '</span>';
+                        }
                     },
                     {
-                        // class: 'p-1',
+                        class: 'p-3',
                         title: '',
                         visible: true,
                         field: 'actions',
@@ -257,6 +255,14 @@
                 const bsToast = new bootstrap.Toast(toastElement, {delay: 6000});
                 bsToast.show();
             }
+
+            function formatMoney(amount) {
+                return new Intl.NumberFormat('de-DE', {
+                    style: 'currency',
+                    currency: 'EUR'
+                }).format(amount);
+            }
+
         })
 
 

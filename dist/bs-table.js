@@ -22,6 +22,8 @@
             url: null,
             data: null,
             columns: [],
+            showColumns: false,
+            minimumCountColumns: 1,
             idField: null,
             icons: {
                 sortAsc: 'bi bi-caret-down-fill text-primary',
@@ -110,7 +112,6 @@
             buildTable($table);
 
             if (!$.bsTable.globalEventsBound) {
-                $.bsTable.globalEventsBound = true;
                 registerGlobalTableEvents();
             }
         }
@@ -234,9 +235,7 @@
         fetchData($table, triggerRefresh)
             .then(() => {
                 triggerEvent($table, 'load-success', $table.data('response'));
-                if (typeof settings.onLoadSuccess === 'function') {
-                    settings.onLoadSuccess($table.data('response'));
-                }
+                executeFunction(settings.onLoadSuccess, $table.data('response'));
                 renderTable($table);
             })
             .catch(error => {
@@ -314,9 +313,7 @@
 
             if (triggerRefresh) {
                 triggerEvent($table, 'refresh', params);
-                if (typeof settings.onRefresh === 'function') {
-                    settings.onRefresh(params);
-                }
+                executeFunction(settings.onRefresh, params);
             }
 
             // Verarbeitung von lokalen Daten
@@ -701,7 +698,7 @@
         if (settings.debug) {
             console.groupCollapsed("Render Table");
         }
-        const wrapper = getWrapper($table);
+        const wrapper = getClosestWrapper($table);
         const response = $table.data('response') || {rows: [], total: 0};
         if (settings.debug) {
             console.log("Response:", response);
@@ -718,7 +715,7 @@
             console.groupEnd();
         }
 
-        if (settings.columns && settings.columns.length) {
+        if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
             buildTableHeader($table, settings.columns);
             buildTableBody($table, currentPageData);
             buildTableFooter($table, settings.columns, response.rows);
@@ -739,11 +736,13 @@
                 $pageListDropdown.prependTo($btnContainer);
             }
         }
-        const $columnSwitch = buildColumnVisibilityDropdown($table);
-        if ($btnContainer.find('[data-role="tableColumnVisibility"]:first').length > 0) {
-            $btnContainer.find('[data-role="tableColumnVisibility"]:first').replaceWith($columnSwitch);
-        } else {
-            $columnSwitch.prependTo($btnContainer);
+        if (settings.showColumns === true) {
+            const $columnSwitch = buildColumnVisibilityDropdown($table);
+            if ($btnContainer.find('[data-role="tableColumnVisibility"]:first').length > 0) {
+                $btnContainer.find('[data-role="tableColumnVisibility"]:first').replaceWith($columnSwitch);
+            } else {
+                $columnSwitch.prependTo($btnContainer);
+            }
         }
 
         if ($btnContainer.find('.btn').length && settings.search === true) {
@@ -800,10 +799,10 @@
             'id': 'dropdownPaginationPageSize',
             'data-bs-toggle': 'dropdown',
             'aria-expanded': 'false'
-        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-list-columns-reverse"></i>');
+        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-arrows-vertical"></i>');
 
         const $dropdownMenu = $('<ul>', {
-            'class': 'dropdown-menu',
+            'class': 'dropdown-menu dropdown-menu-end  bg-gradient ',
             'aria-labelledby': 'dropdownPaginationPageSize'
         });
 
@@ -836,10 +835,10 @@
             'id': 'dropdownPaginationPageSize',
             'data-bs-toggle': 'dropdown',
             'aria-expanded': 'false'
-        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-list-columns-reverse"></i>');
+        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-arrows-vertical"></i>');
 
         const $dropdownMenu = $('<ul>', {
-            'class': 'dropdown-menu dropdown-menu-end',
+            'class': 'dropdown-menu dropdown-menu-end  bg-gradient ',
             'aria-labelledby': 'dropdownPaginationPageSize'
         });
 
@@ -884,61 +883,115 @@
             'type': 'button',
             'id': 'dropdownColumnVisibility',
             'data-bs-toggle': 'dropdown',
+            'data-bs-auto-close': "outside",
             'aria-expanded': 'false'
-        }).html('Columns <i class="bi bi-list-task"></i>');
+        }).html('<i class="bi bi-layout-three-columns"></i>');
 
         // Dropdown-Menü
         const $dropdownMenu = $('<div>', {
-            'class': 'dropdown-menu',
+            'class': 'dropdown-menu bg-gradient dropdown-menu-end',
             'aria-labelledby': 'dropdownColumnVisibility'
         });
 
-// Für jede Spalte eine Checkbox hinzufügen
+        let colIndex = 0;
+
+        // Zähler für sichtbare Spalten
+        let checkedColumnsCount = settings.columns.filter(column => column.visible !== false).length;
+
+        // Funktion: Aktivieren oder Deaktivieren von Checkboxen basierend auf Mindestanzahl an sichtbaren Spalten
+        function updateCheckboxStates() {
+            const checked = $dropdownMenu.find('input[type="checkbox"]:checked'); // Alle aktivierten Checkboxen
+            const notChecked = $dropdownMenu.find('input[type="checkbox"]:not(:checked)'); // Alle deaktivierten Checkboxen
+
+            // Wenn die Anzahl gecheckter Checkboxen <= minimumCountColumns ist, deaktiviere die gecheckten Checkboxen
+            if (checked.length <= settings.minimumCountColumns) {
+                checked.prop('disabled', true); // Gecheckte Checkboxen deaktivieren
+            } else {
+                checked.prop('disabled', false); // Gecheckte Checkboxen aktivieren, wenn Limit nicht erreicht
+            }
+
+            // Nicht gecheckte Checkboxen bleiben immer aktiv (disable = false)
+            notChecked.prop('disabled', false);
+        }
+
+        // Für jede Spalte eine Checkbox hinzufügen
+
         settings.columns.forEach((column, index) => {
             const isVisible = column.visible !== false;
 
-            // Überspringen von Spalten mit checkbox oder radio
+            // Überspringen von Spalten mit `checkbox` oder `radio`
             if (column.checkbox || column.radio) return;
 
-            // Erstelle ein Menü-Item mit Divs
-            const $menuItem = $('<div>', { 'class': 'dropdown-item px-3' }).append(
-                $('<div>', { 'class': 'form-check d-flex align-items-center' }).append(
+            // Erstelle ein Menü-Item mit Checkbox
+            const $menuItem = $('<div>', {'class': 'dropdown-item px-3'}).append(
+                $('<div>', {'class': 'form-check d-flex align-items-center'}).append(
                     $('<input>', {
                         'class': 'form-check-input me-2', // Abstand zur Checkbox hinzufügen
                         'type': 'checkbox',
-                        'id': `columnVisibility-${index}`,
-                        'data-column-index': index,
+                        'id': `columnVisibility-${colIndex}`,
+                        'data-column-index': colIndex,
                         'checked': isVisible
-                    }).on('change', function () {
-                        // Sichtbarkeit der Spalten ändern
-                        const columnIndex = $(this).data('column-index');
-                        const isChecked = $(this).is(':checked');
+                    }).on('change', function (e) {
+                        const $checkbox = $(e.currentTarget);
+                        const columnIndex = $checkbox.data('column-index');
+                        const isChecked = $checkbox.is(':checked');
+
+                        // Sichtbarkeitsstatus ändern
                         settings.columns[columnIndex].visible = isChecked;
-                        updateTableVisibility($table, settings.columns);
+                        setSettings($table, settings);
+                        toggleColumnVisibility($table, columnIndex, isChecked);
+
+                        // Sichtbare Spalten anpassen
+                        checkedColumnsCount += isChecked ? 1 : -1;
+
+                        // Checkbox-Zustände aktualisieren
+                        updateCheckboxStates();
                     }),
                     $('<label>', {
-                        'class': 'form-check-label mb-0', // Zentrierte und saubere Darstellung
+                        'class': 'form-check-label mb-0',
                         'for': `columnVisibility-${index}`
-                    }).text(column.title || column.field || `Column ${index + 1}`)
+                    })
+                        .text(column.title || column.field || `Column ${index + 1}`)
+                        .on('click', function (e) {
+                            e.preventDefault(); // Verhindert das Schließen des Dropdowns
+                            const $checkbox = $(`#columnVisibility-${index}`); // Checkbox anhand der ID finden
+                            $checkbox.prop('checked', !$checkbox.is(':checked')).trigger('change'); // Checkbox toggeln und Change-Event auslösen
+                        })
                 )
             );
 
             $dropdownMenu.append($menuItem);
+            colIndex++;
         });
+
+        // Initiale Deaktivierungsprüfung
+        updateCheckboxStates();
 
         $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
         return $dropdownWrapper;
     }
 
 
-    function updateTableVisibility($table, columns) {
-        const settings = getSettings($table);
-        settings.columns = columns;
-        setSettings($table, settings);
-        renderTable($table);
-        // Implementiere hier die Logik, um die Sichtbarkeit der Spalten in der Tabelle zu aktualisieren.
-        // Das könnte per DataTables, Bootstrap Table oder manueller DOM-Manipulation geschehen.
-        console.log('Aktualisiere Tabellenansicht basierend auf den Spalten:', columns);
+    function toggleColumnVisibility($table, colIndex, isVisible) {
+        // Selektiert die `th`-Elemente im Header, basierend auf colIndex
+        const $theadThs = $table.children('thead').children('tr').children(`th[data-col-index="${colIndex}"]`);
+
+        // Selektiert die `td`-Zellen im Body, basierend auf colIndex
+        const $tbodyTds = $table.children('tbody').children('tr').children(`td[data-col-index="${colIndex}"]`);
+
+        // Selektiert die Zellen im Footer, basierend auf colIndex
+        const $tfootCells = $table.children('tfoot').children('tr').children(`[data-col-index="${colIndex}"]`);
+
+        // Sichtbarkeit aktualisieren: d-none hinzufügen oder entfernen
+        if (isVisible) {
+            $theadThs.removeClass('d-none');
+            $tbodyTds.removeClass('d-none');
+            $tfootCells.removeClass('d-none');
+        } else {
+            $theadThs.addClass('d-none');
+            $tbodyTds.addClass('d-none');
+            $tfootCells.addClass('d-none');
+        }
     }
 
     function createPagination($table, totalRows) {
@@ -1090,21 +1143,19 @@
             });
         }
         if (columns && columns.length) {
-            const $thead = $table.find('thead').empty().addClass(headerClasses.join(' '));
+
+            const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
             const $tr = $('<tr></tr>').appendTo($thead);
 
             buildCheckboxOrRadio($table, $tr, null)
-
+            let colIndex = 0;
             columns.forEach(column => {
-                if (column.visible === false) {
-                    return;
-                }
+                if (column.checkbox === true || column.radio === true) return;
                 const html = [
                     `<div class="d-flex align-items-center justify-content-between">`,
-                    `<span>${column.title ?? ''}</span>`,
+                    `<span class="flex-fill me-1">${column.title ?? ''}</span>`,
                 ];
                 if (column.sortable === true) {
-
                     html.push(`<span><i class="bs-table-icon"></i></span>`);
                 }
                 html.push(`</div>`);
@@ -1113,6 +1164,7 @@
                     'data-sortable': column.sortable === true ? 'true' : 'false',
                     'data-field': column.field,
                     'data-order': order,
+                    'data-col-index': colIndex,
                     html: html.join('')
                 }).appendTo($tr);
                 if (column.sortable === true) {
@@ -1125,6 +1177,30 @@
                 if (column.width) {
                     $th.css('width', column.width);
                 }
+                const classList = [];
+                if (column.halign) {
+                    let align = null;
+                    if (['end', 'right'].includes(column.halign)) {
+                        align = 'end';
+                    }
+                    if (['start', 'left'].includes(column.halign)) {
+                        align = 'start';
+                    }
+                    if (['center', 'middle'].includes(column.halign)) {
+                        align = 'center';
+                    }
+                    if (null !== align) {
+                        classList.push('text-' + align);
+                    }
+                }
+
+                if (column.visible === false) {
+                    classList.push('d-none');
+                }
+                if (classList.length) {
+                    $th.addClass(classList.join(' '));
+                }
+                colIndex++;
             })
         }
     }
@@ -1142,74 +1218,141 @@
 
     function buildTableFooter($table, columns, data) {
         const settings = getSettings($table);
-        if (settings.showFooter === false) {
-            return;
-        }
-        let tableClasses = '';
-        if (typeof settings.classes === 'object') {
-            tableClasses = settings.classes.tfoot;
-        }
-        const $tfoot = $table.find('tfoot').empty().addClass(tableClasses);
-        if (columns && columns.length) {
 
+        const footerClasses = [];
+        if (settings.showFooter === false) {
+            footerClasses.push('d-none')
+        }
+        if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('tfoot')) {
+            settings.classes.tfoot.split(' ').forEach(className => {
+                const classNameTrimmed = className.trim();
+                if (!isValueEmpty(classNameTrimmed)) {
+                    footerClasses.push(classNameTrimmed);
+                }
+            })
+        }
+        const $tfoot = $table.children('tfoot').empty().addClass(footerClasses.join(' '));
+
+        if (columns && columns.length) {
             const $tr = $('<tr></tr>').appendTo($tfoot);
             const columnWithInput =
                 columns.find(column => column.checkbox === true) ||
                 columns.find(column => column.radio === true);
-            if (columnWithInput) {
-                $('<td></td>').appendTo($tr);
-            }
-            columns.forEach(column => {
 
+            if (columnWithInput) {
+                $('<th></th>').appendTo($tr);
+            }
+            let colIndex = 0;
+            columns.forEach(column => {
+                if (column.checkbox === true || column.radio === true) return;
                 let value = '';
-                if (typeof column.footerFormatter === 'function') {
-                    value = column.footerFormatter(data);
+                const formatterValue = executeFunction(column.footerFormatter, data)
+                if (!isValueEmpty(formatterValue)) {
+                    value = formatterValue;
                 }
-                const $td = $('<td>', {html: value}).appendTo($tr);
+                const $th = $('<th>', {
+                    html: value,
+                    'data-col-index': colIndex
+                }).appendTo($tr);
+
+                const classList = [];
+
+                if (column.falign) {
+                    let align = null;
+                    if (['end', 'right'].includes(column.falign)) {
+                        align = 'end';
+                    }
+                    if (['start', 'left'].includes(column.falign)) {
+                        align = 'start';
+                    }
+                    if (['center', 'middle'].includes(column.falign)) {
+                        align = 'center';
+                    }
+                    if (null !== align) {
+                        classList.push('text-' + align);
+                    }
+                }
+
                 if (column.visible === false) {
-                    $td.addClass('d-none');
+                    classList.push('d-none');
                 }
+                if (classList.length) {
+                    $th.addClass(classList.join(' '));
+                }
+                colIndex++;
             })
         }
 
         // Nur die Daten der aktuellen Seite an onPostBody übergeben
         triggerEvent($table, 'post-footer', $tfoot, $table);
-        if (typeof settings.onPostFooter === 'function') {
-            settings.onPostFooter($tfoot, $table);
+        executeFunction(settings.onPostFooter, $tfoot, $table);
+    }
+
+    /**
+     * Executes a given function or a function referenced by its name in the global `window` context.
+     *
+     * @param {Function|string} functionOrName The function to execute or the name of a function in the global scope.
+     * @param {...*} args The arguments to pass to the function when it is executed.
+     * @return {*} Returns the result of executing the function if it is valid, or null if the function execution failed.
+     */
+    function executeFunction(functionOrName, ...args) {
+        if (!functionOrName) {
+            // console.warn("No function has been passed or the name is not defined.");
+            return null;
         }
+
+        if (typeof functionOrName === 'function') {
+            // Direkte Funktionsreferenz
+            return functionOrName(...args);
+        }
+
+        if (typeof functionOrName === 'string' && typeof window[functionOrName] === 'function') {
+            // Funktionsname im globalen `window`-Kontext
+            return window[functionOrName](...args);
+        }
+
+        // console.warn(`"${functionOrName}" is neither a function nor a valid function name.`);
+        return null;
     }
 
     function buildTableBody($table, rows) {
         const settings = getSettings($table);
         // Nur die Daten der aktuellen Seite an onPostBody übergeben
         triggerEvent($table, 'pre-body', rows, $table);
-        if (typeof settings.onPreBody === 'function') {
-            settings.onPreBody(rows, $table);
-        }
+        executeFunction(settings.onPreBody, rows, $table);
         const hasColumns = settings.columns && settings.columns.length;
         const columns = hasColumns ? settings.columns : [];
         const hasCheckbox = columns.some(column => column.checkbox === true);
-        const $tbody = $table.find('tbody').empty()
+        const $tbody = $table.children('tbody').empty();
+
+        let bodyClasses = [];
+        if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('tbody')) {
+            settings.classes.tbody.split(' ').forEach(className => {
+                const classNameTrimmed = className.trim();
+                if (!isValueEmpty(classNameTrimmed)) {
+                    bodyClasses.push(classNameTrimmed);
+                }
+            });
+        }
+
+        $tbody.addClass(bodyClasses.join(' '));
+
         if (rows && rows.length) {
-            let tableClasses = '';
-            if (typeof settings.classes === 'object') {
-                tableClasses = settings.classes.tbody;
-            }
-            $tbody.addClass(tableClasses);
+
             let trIndex = 0;
             rows.forEach(row => {
                 const $tr = $('<tr>', {
                     'data-index': trIndex,
                 }).appendTo($tbody);
                 $tr.data('row', row);
-                if (typeof settings.rowStyle === 'function') {
-                    settings.rowStyle(row, trIndex, $tr);
-                }
+                executeFunction(settings.rowStyle, row, trIndex, $tr);
                 if (hasColumns) {
                     const isInputSet = buildCheckboxOrRadio($table, $tr, row);
+                    let colIndex = 0;
                     settings.columns.forEach(column => {
-
-                        buildTableBodyTd(column, row, $tr);
+                        if (column.checkbox === true || column.radio === true) return;
+                        buildTableBodyTd(column, row, $tr, colIndex);
+                        colIndex++;
                     })
                 }
                 trIndex++;
@@ -1225,9 +1368,7 @@
 
         // Nur die Daten der aktuellen Seite an onPostBody übergeben
         triggerEvent($table, 'post-body', rows, $table);
-        if (typeof settings.onPostBody === 'function') {
-            settings.onPostBody(rows, $table);
-        }
+        executeFunction(settings.onPostBody, rows, $table);
     }
 
     function buildCheckboxOrRadio($table, $tr, row = null) {
@@ -1329,7 +1470,7 @@
         return columnCount;
     }
 
-    function buildTableBodyTd(column, row, $tr) {
+    function buildTableBodyTd(column, row, $tr, colIndex) {
         if (column.field) {
             const trIndex = $tr.data('index');
             let classList = [];
@@ -1339,7 +1480,19 @@
                 });
             }
             if (column.align) {
-                classList.push('text-' + column.align);
+                let align = null;
+                if (['end', 'right'].includes(column.align)) {
+                    align = 'end';
+                }
+                if (['start', 'left'].includes(column.align)) {
+                    align = 'start';
+                }
+                if (['center', 'middle'].includes(column.align)) {
+                    align = 'center';
+                }
+                if (null !== align) {
+                    classList.push('text-' + align);
+                }
             }
             if (column.valign) {
                 classList.push('align-' + column.valign);
@@ -1348,6 +1501,7 @@
 
             // Erstelle die `td`-Zelle mit Klassen und Wert
             const $td = $('<td>', {
+                'data-col-index': colIndex,
                 class: classList.join(' '),
             }).appendTo($tr);
 
@@ -1360,13 +1514,9 @@
             $td.data('trIndex', trIndex);
 
             let value = row[column.field] ?? ' - ';
-            if (column.formatter && typeof column.formatter === 'function') {
-                const customValue = column.formatter(value, row, trIndex, $td);
-
-                // Wenn der Formatter einen Wert zurückgibt, und die Zelle leer ist, verwende den Wert
-                if (typeof customValue === 'string' && customValue.trim() !== '' && $td.html().trim() === '') {
-                    value = customValue;
-                }
+            const valueFormatter = executeFunction(column.formatter, value, row, trIndex, $td);
+            if (!isValueEmpty(valueFormatter)) {
+                value = valueFormatter;
             }
 
             // Setze den Wert auf die Zelle nur, wenn die Zelle vorher leer war
@@ -1570,16 +1720,12 @@
         }
 
         triggerEvent($table, 'sort', settings.sortName, settings.sortOrder);
-
-        if (typeof settings.onSort === 'function') {
-            settings.onSort(settings.sortName, settings.sortOrder);
-        }
+        executeFunction(settings.onSort, settings.sortName, settings.sortOrder);
         setSettings($table, settings);
         refresh($table);
     }
 
     function onClickCellAndRow($td) {
-        // console.log('onClickCellAndRow', $td);
         if ($td.attr('data-role') === 'tableCellCheckbox') {
             return;
         }
@@ -1591,13 +1737,9 @@
         const value = row[column.field] ?? null;
         const trIndex = $td.data('trIndex');
         triggerEvent($table, 'click-row', row, $tr, column.field)
-        if (typeof settings.onClickRow === 'function') {
-            settings.onClickRow(row, $tr, column.field);
-        }
-        triggerEvent($table, 'click-cell', column.field, value, row, $td)
-        if (typeof settings.onClickCell === 'function') {
-            settings.onClickCell(column.field, value, row, $td);
-        }
+        executeFunction(settings.onClickRow, row, $tr, column.field);
+        triggerEvent($table, 'click-cell', column.field, value, row, $td);
+        executeFunction(settings.onClickCell, column.field, value, row, $td);
     }
 
     function triggerEvent($table, eventName, ...args) {
@@ -1624,7 +1766,7 @@
 
         // Globales "all.bs.table"-Event
         if (eventName !== 'all') {
-            const allEvent = $.Event(`all${namespace}`, { target: targetTable });
+            const allEvent = $.Event(`all${namespace}`, {target: targetTable});
             $table.trigger(allEvent, [eventName + namespace, ...args]);
             allEvent.stopPropagation();
         }
@@ -1661,14 +1803,10 @@
         const row = $tr.data('row');
         if (isChecked) {
             triggerEvent(table, 'check', row, $checkbox);
-            if (typeof settings.onCheck === 'function') {
-                settings.onCheck(row, $checkbox);
-            }
+            executeFunction(settings.onCheck, row, $checkbox);
         } else {
             triggerEvent(table, 'uncheck', row, $checkbox);
-            if (typeof settings.onUncheck === 'function') {
-                settings.onUncheck(row, $checkbox);
-            }
+            executeFunction(settings.onUncheck, row, $checkbox);
         }
         $tr.toggleClass('table-active');
     }
@@ -1693,9 +1831,7 @@
                 if (radio.is(':checked')) {
                     radioTr.addClass('table-active');
                     triggerEvent(table, 'check', radioTr.data('row'), radio);
-                    if (typeof settings.onCheck === 'function') {
-                        settings.onCheck(radioTr.data('row'), radio);
-                    }
+                    executeFunction(settings.onCheck, radioTr.data('row'), radio);
                 }
             }
         });
@@ -1722,14 +1858,10 @@
         });
         if (isChecked) {
             triggerEvent(table, 'check-all');
-            if (typeof settings.onCheckAll === 'function') {
-                settings.onCheckAll();
-            }
+            executeFunction(settings.onCheckAll);
         } else {
             triggerEvent(table, 'uncheck-all');
-            if (typeof settings.onUncheckAll === 'function') {
-                settings.onUncheckAll();
-            }
+            executeFunction(settings.onUncheckAll);
         }
     }
 
@@ -1756,11 +1888,10 @@
             }
         });
         triggerEvent(table, 'uncheck-all');
-        if (typeof settings.onUncheckAll === 'function') {
-            settings.onUncheckAll();
-        }
+        executeFunction(settings.onUncheckAll);
         $checkbox.prop('disabled', true);
     }
+
     function registerGlobalTableEvents() {
         let searchTimeout;
 
@@ -1788,7 +1919,7 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
             })
-            .on('click' + namespace, 'td', function (e) {
+            .on('click' + namespace, 'tbody > tr > td', function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $td = $(e.currentTarget);
@@ -1891,6 +2022,8 @@
                 setSettings(table, settings);
                 refresh(table);
             });
+
+        $.bsTable.globalEventsBound = true;
     }
 
 }(jQuery))

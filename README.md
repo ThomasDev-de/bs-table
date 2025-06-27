@@ -127,6 +127,18 @@ Controls the visibility of the table's `tfoot`.
 
 ---  
 
+### showColumns (Type: `boolean`, Default: `false`)
+
+If the option is activated, a dropdown will be created where you can show and hide columns.
+
+---
+
+### minimumCountColumns  (Type: `number`, Default: `1`)
+
+If `showColumns` is activated, you can control how many columns should remain visible at a minimum.
+
+---
+
 ### `url` (Type: `string | function`, Default: `null`)
 
 Defines the source for fetching the table's data.
@@ -199,6 +211,8 @@ columns: [
 - **`title`**: The header text of the column.
 - **`sortable`**: Whether the column can be sorted (`true` or `false`).
 - **`align`**: Sets horizontal alignment (`'left'`, `'center'`, or `'right'`).
+- **`halign`**: Sets horizontal alignment for the header (`'left'`, `'center'`, or `'right'`).
+- **`falign`**: Sets horizontal alignment for the footer (`'left'`, `'center'`, or `'right'`).
 - **`valign`**: Sets vertical alignment (`'top'`, `'middle'`, or `'bottom'`).
 - **`formatter`**: A custom function to format the cell values.
     - **Parameters**:
