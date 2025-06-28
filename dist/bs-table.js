@@ -72,7 +72,13 @@
             onUncheckAll() {
             },
             formatNoMatches() {
-                return `<i class="bi bi-x-lg fs-3"></i>`
+                return `<i class="bi bi-x-lg fs-1 text-danger"></i>`;
+            },
+            formatSearch(){
+                return `...`
+            },
+            formatShowingRows(pageFrom, pageTo, totalRows) {
+                return `${pageFrom} - ${pageTo} / ${totalRows}`;
             },
             debug: false
         }
@@ -575,7 +581,7 @@
 
         const template = `
             <div class="d-flex flex-column ${gapClass}" data-role="tableBottomContainer">
-                <div class="d-flex justify-content-between ${flexClass}">
+                <div class="d-flex justify-content-between align-items-start ${flexClass}">
                     <div class="${wrapperPaginationDetailsClass}"></div>
                     <div class="${wrapperPaginationClass} bottom"></div>
                 </div>
@@ -612,7 +618,7 @@
                     <div class="btn-group bs-table-buttons">
                     </div>
                 </div>
-                <div class="d-flex justify-content-between ${flexClass}">
+                <div class="d-flex justify-content-between align-items-end ${flexClass}">
                     <div class="${wrapperPaginationDetailsClass}"></div>
                     <div class="${wrapperPaginationClass} top"></div>
                 </div>
@@ -634,10 +640,11 @@
         // Such-Wrapper erstellen (links)
 // Falls die Suche aktiviert ist, füge ein Input-Feld und Logik hinzu
         if (settings.search === true) {
+            const placeholder = executeFunction(settings.formatSearch)
             const $searchInputGroup = $(`
     <div class="input-group">
         <span class="input-group-text"><i class="${settings.icons.search}"></i></span>
-        <input type="search" class="form-control ${inputSearchClass}" placeholder="...">
+        <input type="search" class="form-control ${inputSearchClass}" placeholder="${placeholder}">
     </div>
 `);
             $searchInputGroup.appendTo($searchWrapper);
@@ -723,7 +730,8 @@
 
         const $topPaginationContainer = getPaginationContainer($table, true).empty();
         const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
-
+       createPaginationDetails($table, totalRows);
+        // $paginationDetails.appendTo();
         const $tableTopContainer = getTableTopContainer($table);
         const $btnContainer = $tableTopContainer.find('.bs-table-buttons:first');
         if (isValueEmpty(settings.pageList)) {
@@ -774,45 +782,35 @@
 
     function createPaginationDetails($table, totalRows) {
         const settings = getSettings($table);
-
+        const wrapper = getClosestWrapper($table);
         // Berechnung der Anzeige-Daten (Start- und Endzeilen)
         const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
         const currentPage = settings.pageNumber || 1;
         const startRow = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
         const endRow = Math.min(totalRows, currentPage * pageSize);
 
-        // Haupt-Wrapper (d-flex für Flexbox)
-        const $paginationDetailWrapper = $('<div>', {
-            'class': 'd-flex align-items-center',
-            'data-role': 'tablePaginationPageSize'
-        });
 
         // Textanzeige: "Showing x to y of total rows"
-        const $paginationText = $('<span>', {
-            'class': 'mx-2'
-        }).html(`<div class="badge text-bg-secondary">${startRow} - ${endRow} / ${totalRows}</div>`);
+        const text = executeFunction(settings.formatShowingRows, startRow, endRow, totalRows);
+        const $paginationText = $('<div>')
+            .html(`<div class="">${text}</div>`);
 
-        // Dropdown für die Zeilenanzahl pro Seite
-        const $dropdownToggle = $('<button>', {
-            'class': 'btn btn-secondary dropdown-toggle me-1',
-            'type': 'button',
-            'id': 'dropdownPaginationPageSize',
-            'data-bs-toggle': 'dropdown',
-            'aria-expanded': 'false'
-        }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-arrows-vertical"></i>');
+        const $allDestinations = wrapper.find('.bs-table-pagination-details');
+        console.log('Gefundene Elemente:', $allDestinations.length);
 
-        const $dropdownMenu = $('<ul>', {
-            'class': 'dropdown-menu dropdown-menu-end  bg-gradient ',
-            'aria-labelledby': 'dropdownPaginationPageSize'
-        });
+        if ($allDestinations.length > 0) {
+            const $first = $allDestinations.first().empty();
+            const $last = $allDestinations.last().empty();
 
-        // Text für "rows per page"
-        const $rowsPerPageText = $('<span>').text('');
+            // Beispiel: Append zu beiden
+            $paginationText.clone().appendTo($first);
+            $paginationText.clone().appendTo($last);
 
-        // Baue die Reihenfolge zusammen: Dropdown vor "rows per page"
-        $paginationDetailWrapper.append($dropdownToggle, $dropdownMenu, $paginationText);
-
-        return $paginationDetailWrapper;
+            console.log('First Element:', $first);
+            console.log('Last Element:', $last);
+        } else {
+            console.warn('Keine .bs-table-pagination-details gefunden.');
+        }
     }
 
     function buildPagelistDropdown($table, totalRows) {
@@ -949,12 +947,12 @@
                     }),
                     $('<label>', {
                         'class': 'form-check-label mb-0',
-                        'for': `columnVisibility-${index}`
+                        'for': `columnVisibility-${colIndex}`
                     })
-                        .text(column.title || column.field || `Column ${index + 1}`)
+                        .text(column.title || column.field || `Column ${colIndex + 1}`)
                         .on('click', function (e) {
                             e.preventDefault(); // Verhindert das Schließen des Dropdowns
-                            const $checkbox = $(`#columnVisibility-${index}`); // Checkbox anhand der ID finden
+                            const $checkbox = $(`#columnVisibility-${colIndex}`); // Checkbox anhand der ID finden
                             $checkbox.prop('checked', !$checkbox.is(':checked')).trigger('change'); // Checkbox toggeln und Change-Event auslösen
                         })
                 )
@@ -969,6 +967,19 @@
 
         $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
         return $dropdownWrapper;
+    }
+
+    function showCheckItem($table) {
+        const settings = getSettings($table);
+        const columns = settings.columns || [];
+        if (!columns.length || !settings.idField) return false;
+
+        const hasCheckItem = columns.some(column => column.checkbox === true || column.radio === true);
+        if (!hasCheckItem) {
+            return false;
+        }
+
+        return columns.some(column => column.field === settings.idField);
     }
 
 
@@ -1142,12 +1153,14 @@
                 }
             });
         }
-        if (columns && columns.length) {
 
-            const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
-            const $tr = $('<tr></tr>').appendTo($thead);
-
+        const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
+        const $tr = $('<tr></tr>').appendTo($thead);
+        if (showCheckItem($table)) {
             buildCheckboxOrRadio($table, $tr, null)
+        }
+
+        if (columns && columns.length) {
             let colIndex = 0;
             columns.forEach(column => {
                 if (column.checkbox === true || column.radio === true) return;
@@ -1231,17 +1244,14 @@
                 }
             })
         }
+
         const $tfoot = $table.children('tfoot').empty().addClass(footerClasses.join(' '));
+        const $tr = $('<tr></tr>').appendTo($tfoot);
+        if (showCheckItem($table)) {
+            $('<th></th>').appendTo($tr);
+        }
 
         if (columns && columns.length) {
-            const $tr = $('<tr></tr>').appendTo($tfoot);
-            const columnWithInput =
-                columns.find(column => column.checkbox === true) ||
-                columns.find(column => column.radio === true);
-
-            if (columnWithInput) {
-                $('<th></th>').appendTo($tr);
-            }
             let colIndex = 0;
             columns.forEach(column => {
                 if (column.checkbox === true || column.radio === true) return;
@@ -1347,13 +1357,15 @@
                 $tr.data('row', row);
                 executeFunction(settings.rowStyle, row, trIndex, $tr);
                 if (hasColumns) {
-                    const isInputSet = buildCheckboxOrRadio($table, $tr, row);
+                    if (showCheckItem($table)) {
+                        buildCheckboxOrRadio($table, $tr, row)
+                    }
                     let colIndex = 0;
                     settings.columns.forEach(column => {
                         if (column.checkbox === true || column.radio === true) return;
                         buildTableBodyTd(column, row, $tr, colIndex);
                         colIndex++;
-                    })
+                    });
                 }
                 trIndex++;
             })
@@ -1567,12 +1579,12 @@
 
     function getTableBottomContainer($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
-        return $wrapper.find(`[data-role="tableBottomContainer"]`).first();
+        return $wrapper.children(`[data-role="tableBottomContainer"]`).first();
     }
 
     function getTableTopContainer($table) {
         const $wrapper = getWrapper($table);
-        return $wrapper.find(`[data-role="tableTopContainer"]`).first();
+        return $wrapper.children(`[data-role="tableTopContainer"]`).first();
     }
 
     function getPaginationContainer($table, top) {

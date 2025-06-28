@@ -93,7 +93,7 @@
                 pagination: true,
                 data: data,
                 idField: 'id',
-                paginationVAlign: 'bottom',
+                paginationVAlign: 'both',
                 paginationHAlign: 'end',
                 sidePagination: 'client',
                 caption: {
@@ -101,6 +101,9 @@
                 },
                 onPostBody: function () {
                     const subTable = table.find('table').first()
+                    if (!subTable.length) {
+                        return;
+                    }
                     subTable.bsTable({
                         classes: {
                             table: 'table align-top table-sm table-danger mb-0',
