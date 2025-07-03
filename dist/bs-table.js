@@ -810,12 +810,14 @@
     function createPaginationDetails($table, totalRows) {
         const settings = getSettings($table);
         const wrapper = getClosestWrapper($table);
+
+        // Paginierung prüfen und Berechnungen entsprechend anpassen
+        const pageSize = settings.pagination === false ? totalRows : (settings.pageSize || totalRows);
+        const currentPage = settings.pagination === false ? 1 : (settings.pageNumber || 1);
+
         // Berechnung der Anzeige-Daten (Start- und Endzeilen)
-        const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
-        const currentPage = settings.pageNumber || 1;
         const startRow = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
         const endRow = Math.min(totalRows, currentPage * pageSize);
-
 
         // Textanzeige: "Showing x to y of total rows"
         const text = executeFunction(settings.formatShowingRows, startRow, endRow, totalRows);
