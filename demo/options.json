@@ -1,0 +1,410 @@
+[
+  {
+    "option": "classes",
+    "type": "string | object",
+    "default": "table",
+    "description": "Defines the CSS classes applied to the table.\n\n- If a `string` is provided, it is directly added as a class to the table.\n- If an `object` is provided, more specific classes can be applied to individual table elements.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    classes: 'table table-sm'\n})"
+      },
+      {
+        "language": "json",
+        "code": {
+          "table": "table align-top table-sm table-bordered table-dark mb-0",
+          "thead": "table-dark h4 text-uppercase",
+          "tbody": "table-group-divider",
+          "tfoot": "table-warning",
+          "caption": "table-primary"
+        }
+      },
+      {
+        "language": "html",
+        "code": "<table data-classes='table table-borderless'></table>"
+      }
+    ]
+  },
+  {
+    "option": "toolbar",
+    "type": "string | $",
+    "default": "null",
+    "description": "Specifies a selector or a jQuery object that is moved to the top of the table.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    toolbar: '#myTableToolbar'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-toolbar='#myTableToolbar'></table>"
+      }
+    ]
+  },
+  {
+    "option": "pagination",
+    "type": "boolean",
+    "default": true,
+    "description": "If set to `true`, the table includes pagination controls.  \nIf set to `false`, no pagination will be used.\nWhen enabled, parameters such as `limit` and `offset` are included in server requests.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    pagination: false\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-pagination='false'></table>"
+      }
+    ]
+  },
+  {
+    "option": "sidePagination",
+    "type": "string",
+    "default": "client",
+    "description": "Determines where pagination should occur.\n\n- Possible values:\n    - `'client'`: Assumes all data is available locally.\n    - `'server'`: Pagination is based on the server's response in the format `{rows: [], total: 0}`.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    sidePagination: 'server'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-side-pagination='server'></table>"
+      }
+    ]
+  },
+  {
+    "option": "paginationVAlign",
+    "type": "string",
+    "default": "bottom",
+    "description": "Specifies the vertical alignment of pagination controls:\n\n- Values: `'top'`, `'bottom'`, or `'both'`.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    paginationVAlign: 'both'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-pagination-v-align='top'></table>"
+      }
+    ]
+  },
+  {
+    "option": "paginationHAlign",
+    "type": "string",
+    "default": "end",
+    "description": "Specifies the horizontal alignment of pagination controls:  - Values: `'start'` (left) or `'end'` (right).",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    paginationHAlign: 'start'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-pagination-h-align='left'></table>"
+      }
+    ]
+  },
+  {
+    "option": "pageNumber",
+    "type": "number",
+    "default": 1,
+    "description": "Defines the default initial page number at which the table should be loaded.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    pageNumber: 2\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-page-number='1'></table>"
+      }
+    ]
+  },
+  {
+    "option": "pageSize",
+    "type": "number",
+    "default": 10,
+    "description": "Defines how many rows should be displayed on a single page.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    pageSize: 25\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-page-size='15'></table>"
+      }
+    ]
+  },
+  {
+    "option": "pageList",
+    "type": "array",
+    "default": "[5, 10, 25, 50, 100, 200, 'All']",
+    "description": "Provides an array of page size options that users can select from to change the number of displayed rows per page.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    pageList: [1, 5, 10]\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-page-list='[5, 10, 25, 50, 100, 200, \"All\"]'></table>"
+      }
+    ]
+  },
+  {
+    "option": "search",
+    "type": "boolean",
+    "default": true,
+    "description": "Enables or disables the search bar above the table.  \nWhen enabled, search parameters are included in server requests as the `search` attribute.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    search: false\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-search='false'></table>"
+      }
+    ]
+  },
+  {
+    "option": "sortName",
+    "type": "string",
+    "default": "null",
+    "description": "Defines the column by which the table content should be initially sorted.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    sortName: 'option'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-sort-name='option'></table>"
+      }
+    ]
+  },
+  {
+    "option": "sortOrder",
+    "type": "string",
+    "default": "asc",
+    "description": "Specifies the default sorting order for the table.\n\n- Possible values:\n    - `'asc'`: Ascending order.\n    - `'desc'`: Descending order.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    sortOrder: 'desc'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-sort-order='desc'></table>"
+      }
+    ]
+  },
+  {
+    "option": "showRefresh",
+    "type": "boolean",
+    "default": true,
+    "description": "Displays a refresh button above the table, allowing the user to reload the data.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    showRefresh: false\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-show-refresh='false'></table>"
+      }
+    ]
+  },
+  {
+    "option": "showHeader",
+    "type": "boolean",
+    "default": true,
+    "description": "Controls the visibility of the table's `thead`.\n\n- `true`: Display the table header.\n- `false`: Hide the table header.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    showHeader: false\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-show-header='false'></table>"
+      }
+    ]
+  },
+  {
+    "option": "showFooter",
+    "type": "boolean",
+    "default": false,
+    "description": "Controls the visibility of the table's `tfoot`.\n\n- `true`: Display the table footer.\n- `false`: Hide the table footer.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    showFooter: true\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-show-footer='true'></table>"
+      }
+    ]
+  },
+  {
+    "option": "showColumns",
+    "type": "boolean",
+    "default": false,
+    "description": "If the option is activated, a dropdown will be created where you can show and hide columns.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    showColumns: true\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-show-columns='true'></table>"
+      }
+    ]
+  },
+  {
+    "option": "minimumCountColumns",
+    "type": "number",
+    "default": 1,
+    "description": "If `showColumns` is activated, you can control how many columns should remain visible at a minimum.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    showColumns: true\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-show-columns='true'></table>"
+      }
+    ]
+  },
+  {
+    "option": "url",
+    "type": "string | function",
+    "default": "null",
+    "description": "Defines the source for fetching the table's data.\n\n- If a `string` is provided, it is treated as the endpoint for server requests.\n- If a `function` is provided, it should return a `Promise` with the data.\n\nThe `url` is only used if the table is not provided with a `data` attribute.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    url: 'path/to/server.php'\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-url='functionName'></table>"
+      }
+    ]
+  },
+  {
+    "option": "data",
+    "type": "array",
+    "default": "null",
+    "description": "Defines the local data that should be used to populate the table.\n\n- If set, the table will use the data array directly without making server requests.\n- The array should consist of objects, where each object represents a row in the table.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    data: []\n})"
+      },
+      {
+        "language": "json",
+        "code": [
+          {
+            "id": 1,
+            "title": "Example Title",
+            "body": "Example Body"
+          },
+          {
+            "id": 2,
+            "title": "Another Title",
+            "body": "Another Body"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "option": "columns",
+    "type": "Array<Object>",
+    "default": "[]",
+    "description": "Defines the structure and behavior of the table's columns. Each element in the array represents a column and can include\nvarious configuration options. See [column options](#table_column_options) below.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    columns: [...columnOptions]\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-columns='[...columnOptions]'></table>"
+      }
+    ]
+  },
+  {
+    "option": "idField",
+    "type": "string",
+    "default": "null",
+    "description": "The `idField` defines the unique identifier of each record in the table's data set. This is especially useful for\noperations like row selection, updates, or deletions, where identifying a specific row is required.\n\n**Usage:**\n\nThe value of `idField` corresponds to the key in the data objects that contains the unique identifier. If defined, this\nfield is used internally by the table for identifying rows and managing state.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "const options = {\n    idField: 'id', // Unique row identifier\n    columns: [\n        {\n            checkbox: true // Enables row selection via checkboxes\n        },\n        {\n            visible:false,\n            field: 'id',\n        },\n        {\n            field: 'title',\n            title: 'Title'\n        }\n    ]\n};"
+      },
+      {
+        "language": "html",
+        "code": "<table data-id-field='id'></table>"
+      }
+    ]
+  },
+  {
+    "option": "icons",
+    "type": "object",
+    "default": "see json example",
+    "description": "Defines the local data that should be used to populate the table.\n\n- If set, the table will use the data array directly without making server requests.\n- The array should consist of objects, where each object represents a row in the table.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    icons: {...}\n})"
+      },
+      {
+        "language": "json",
+        "code": {
+          "sortAsc": "bi bi-caret-down-fill text-primary",
+          "sortDesc": "bi bi-caret-up-fill text-primary",
+          "sortNone": "bi bi-caret-down",
+          "refresh": "bi bi-arrow-clockwise",
+          "search": "bi bi-search",
+          "paginationNext": "bi bi-chevron-right",
+          "paginationPrev": "bi bi-chevron-left"
+        }
+      },
+      {
+        "language": "html",
+        "code": "<table data-icons='{...}'></table>"
+      }
+    ]
+  },
+  {
+    "option": "caption",
+    "type": "string | object",
+    "default": "null",
+    "description": "The `caption` property defines a title or brief description for the table. It can be set as a simple string or a\nconfiguration object to customize its appearance and position.\n\n**Usage Modes:**\n\n1. **As a String:**\n   If `caption` is provided as a string, the string will directly be used as the caption text.\n\n2. **As an Object:**\n   When given as an object, it allows additional customization such as positioning and styling.\n\n**Options When Using as an Object:**\n\n- **`text`**: (`string`) The text to display as the caption.\n- **`onTop`**: (`boolean`) Specifies whether to display the caption above or below the table. Defaults to `false` (below\n  the table).",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    caption: 'look at my table'\n})"
+      },
+      {
+        "language": "json",
+        "code": {
+          "text": "<h5>look at my table</h5>",
+          "onTop": true
+        }
+      },
+      {
+        "language": "html",
+        "code": "<table data-caption='look at my table'></table>"
+      }
+    ]
+  }
+]

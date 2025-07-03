@@ -3,6 +3,12 @@
 
     $.bsTable = {
         globalEventsBound: false,
+        setDefaults: function (options) {
+            this.defaults = $.extend(true, {}, this.defaults, options || {});
+        },
+        getDefaults: function () {
+            return this.defaults;
+        },
         defaults: {
             classes: 'table',
             toolbar: null,
@@ -25,6 +31,7 @@
             showColumns: false,
             minimumCountColumns: 1,
             idField: null,
+            clickToSelect: false,
             icons: {
                 sortAsc: 'bi bi-caret-down-fill text-primary',
                 sortDesc: 'bi bi-caret-up-fill text-primary',
@@ -74,7 +81,7 @@
             formatNoMatches() {
                 return `<i class="bi bi-x-lg fs-1 text-danger"></i>`;
             },
-            formatSearch(){
+            formatSearch() {
                 return `...`
             },
             formatShowingRows(pageFrom, pageTo, totalRows) {
@@ -106,7 +113,7 @@
         const $table = $(this);
         if (!$table.data('bsTable')) {
             const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
-            const settings = $.extend(true, {}, $.bsTable.defaults, $table.data() || {}, options);
+            const settings = $.extend(true, {}, $.bsTable.getDefaults(), $table.data() || {}, options);
             if (!settings.columns || !Array.isArray(settings.columns)) {
                 settings.columns = [];
             }
@@ -163,12 +170,14 @@
     };
 
     function setCaption($table, stringOrObject) {
+        const settings = getSettings($table);
         let caption = $table.find('caption:first');
         const isEmpty = isValueEmpty(stringOrObject);
         if (isEmpty) {
             caption.remove();
             return;
         }
+        const captionClasses = [];
         const isString = typeof stringOrObject === 'string';
         const isObject = typeof stringOrObject === 'object';
         const captionText = isString ? stringOrObject : isObject ? stringOrObject.text : null;
@@ -179,21 +188,27 @@
         } else {
             caption.html(captionText);
         }
+
         if (isObject) {
-
-            if (stringOrObject.hasOwnProperty('classes') && typeof stringOrObject.classes === 'string') {
-                // Entferne alle vorhandenen Klassen aus dem Element
-                caption.attr('class', '');
-
-                // Füge die neue Klasse hinzu
-                caption.addClass(stringOrObject.classes);
-            }
-
             if (stringOrObject.hasOwnProperty('onTop') && stringOrObject.onTop === true) {
+                captionClasses.push('caption-top');
                 caption.addClass('caption-top');
-            } else {
-                caption.removeClass('caption-top');
             }
+        }
+
+        if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('caption')) {
+            // Entferne alle vorhandenen Klassen aus dem Element
+            caption.attr('class', '');
+
+            settings.classes.caption.split(' ').forEach(className => {
+                const classNameCheck = className.trim();
+                if (!isValueEmpty(classNameCheck)) {
+                    captionClasses.push(classNameCheck);
+                }
+            });
+
+            // Füge die neue Klasse hinzu
+            caption.addClass(captionClasses.join(' '));
         }
     }
 
@@ -366,7 +381,10 @@
                     if (settings.debug) {
                         console.log("Alle Daten für pageSize = 0 oder pagination = false zurückgeben:", totalRows, "Datensätze."); // DEBUG
                     }
-                    $table.data('response', {rows: filteredData, total: totalRows});
+                    const responseBefore = {rows: filteredData, total: totalRows};
+                    const responseAfter = executeFunction(settings.responseHandler, responseBefore);
+
+                    $table.data('response', responseAfter ?? responseBefore);
                     if (settings.debug) {
                         console.groupEnd();
                     }
@@ -387,7 +405,10 @@
                     if (settings.debug) {
                         console.warn("Pagination-Ergebnis ist leer. Es gibt keine Daten für diese Seite."); // DEBUG
                     }
-                    $table.data('response', {rows: [], total: totalRows});
+                    const responseBefore = {rows: [], total: totalRows};
+                    const responseAfter = executeFunction(settings.responseHandler, responseBefore);
+
+                    $table.data('response', responseAfter ?? responseBefore);
                     if (settings.debug) {
                         console.groupEnd();
                     }
@@ -401,7 +422,10 @@
                     console.log("Daten für aktuelle Seite (Slice-Ergebnis):", slicedData); // DEBUG
                 }
 
-                $table.data('response', {rows: slicedData, total: totalRows});
+                const responseBefore = {rows: slicedData, total: totalRows};
+                const responseAfter = executeFunction(settings.responseHandler, responseBefore);
+
+                $table.data('response', responseAfter ?? responseBefore);
                 if (settings.debug) {
                     console.groupEnd();
                 }
@@ -409,82 +433,85 @@
                 return;
             }
 
-            // Verarbeitung von serverseitigen Daten (falls konfiguriert)
-            // Verarbeitung von serverseitigen Daten (falls konfiguriert)
             if (settings.url) {
                 if (settings.debug) {
-                    console.log("Starte Datenabruf vom Server:", settings.url, "mit Parametern:", params); // DEBUG
+                    console.log("Starte Datenabruf:", settings.url, "mit Parametern:", params); // DEBUG
                 }
 
                 if (typeof settings.url === "function") {
-                    // `url` ist eine Funktion: Call und warten auf Promise
-                    if (settings.debug) {
-                        console.log("settings.url ist eine Funktion. Rufe Funktion mit Parametern auf."); // DEBUG
-                    }
-
+                    // `url` ist eine Funktion
                     settings.url(params)
                         .then(response => {
-                            // Verarbeite die Antwort wie bei der normalen Ajax-Abfrage
                             const processedResponse = Array.isArray(response)
                                 ? {rows: response, total: response.length}
-                                : {rows: response.rows || [], total: response.total || 0};
+                                : {...response, rows: response.rows || [], total: response.total || 0};
 
                             if (settings.debug) {
                                 console.log("API-Antwort von Funktion erhalten:", processedResponse); // DEBUG
                             }
 
-                            $table.data('response', processedResponse);
-
-                            if (settings.debug) {
-                                console.groupEnd();
-                            }
-
+                            const responseAfter = executeFunction(settings.responseHandler, processedResponse);
+                            $table.data("response", responseAfter ?? processedResponse);
                             resolve();
                         })
                         .catch(error => {
-                            // Fehlerhandling
                             if (settings.debug) {
                                 console.error("Fehler bei der Verarbeitung der Funktion:", error); // DEBUG
-                                console.groupEnd();
                             }
                             reject(new Error(`Fehler bei der API-Abfrage (Funktion): ${error.message || error}`));
                         });
-                } else {
-                    // `url` ist ein String: Standard-Ajax-Logik
-                    if (settings.debug) {
-                        console.log("settings.url ist ein String. Verwende $.ajax für Abruf."); // DEBUG
-                    }
+                } else if (typeof settings.url === "string") {
+                    const urlFunction = window[settings.url]; // Prüfen, ob der String ein Funktionsname ist
+                    if (typeof urlFunction === "function") {
+                        // `url`-String repräsentiert eine Funktion
+                        urlFunction(params)
+                            .then(response => {
+                                const processedResponse = Array.isArray(response)
+                                    ? {rows: response, total: response.length}
+                                    : {...response, rows: response.rows || [], total: response.total || 0};
 
-                    $.ajax({
-                        url: settings.url,
-                        method: "GET",
-                        data: params,
-                        dataType: "json"
-                    })
-                        .done(response => {
-                            const processedResponse = Array.isArray(response)
-                                ? {rows: response, total: response.length}
-                                : {rows: response.rows || [], total: response.total || 0};
+                                if (settings.debug) {
+                                    console.log("API-Antwort von Funktion erhalten:", processedResponse); // DEBUG
+                                }
 
-                            if (settings.debug) {
-                                console.log("API-Antwort von String-URL erhalten:", processedResponse); // DEBUG
-                            }
-
-                            $table.data('response', processedResponse);
-
-                            if (settings.debug) {
-                                console.groupEnd();
-                            }
-
-                            resolve();
+                                const responseAfter = executeFunction(settings.responseHandler, processedResponse);
+                                $table.data("response", responseAfter ?? processedResponse);
+                                resolve();
+                            })
+                            .catch(error => {
+                                if (settings.debug) {
+                                    console.error("Fehler bei Funktions-URL-Verarbeitung:", error); // DEBUG
+                                }
+                                reject(new Error(`Fehler bei der Verarbeitung der Funktion: ${error.message || error}`));
+                            });
+                    } else {
+                        // `url` ist eine tatsächliche URL und kein Funktionsname
+                        $.ajax({
+                            url: settings.url,
+                            method: "GET",
+                            data: params,
+                            dataType: "json"
                         })
-                        .fail((xhr, status, error) => {
-                            if (settings.debug) {
-                                console.error("Fehler bei der API-Abfrage (String-URL):", status, error); // DEBUG
-                                console.groupEnd();
-                            }
-                            reject(new Error(`Fehler bei der API-Abfrage (String-URL): ${status}, ${error}`));
-                        });
+                            .done(response => {
+                                const processedResponse = Array.isArray(response)
+                                    ? {rows: response, total: response.length}
+                                    : {...response, rows: response.rows || [], total: response.total || 0};
+
+                                if (settings.debug) {
+                                    console.log("API-Antwort von String-URL erhalten:", processedResponse); // DEBUG
+                                }
+
+                                const responseAfter = executeFunction(settings.responseHandler, processedResponse);
+                                $table.data("response", responseAfter ?? processedResponse);
+                                resolve();
+                            })
+                            .fail((xhr, status, error) => {
+                                if (settings.debug) {
+                                    console.error("Fehler bei der API-Abfrage (String-URL):", status, error); // DEBUG
+                                }
+                                reject(new Error(`Fehler bei der API-Abfrage (String-URL): ${status}, ${error}`));
+                            });
+                    }
                 }
             }
         });
@@ -723,18 +750,18 @@
         }
 
         if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
-            buildTableHeader($table, settings.columns);
+            buildTableHeader($table);
             buildTableBody($table, currentPageData);
-            buildTableFooter($table, settings.columns, response.rows);
+            buildTableFooter($table, response.rows);
         }
 
         const $topPaginationContainer = getPaginationContainer($table, true).empty();
         const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
-       createPaginationDetails($table, totalRows);
+        createPaginationDetails($table, totalRows);
         // $paginationDetails.appendTo();
         const $tableTopContainer = getTableTopContainer($table);
         const $btnContainer = $tableTopContainer.find('.bs-table-buttons:first');
-        if (isValueEmpty(settings.pageList)) {
+        if (isValueEmpty(settings.pageList) || settings.pagination === false || pageSize === 0) {
             $btnContainer.find('[data-role="tablePaginationPageSize"]:first').remove();
         } else {
             const $pageListDropdown = buildPagelistDropdown($table, totalRows);
@@ -1136,8 +1163,9 @@
         return visiblePages;
     }
 
-    function buildTableHeader($table, columns) {
+    function buildTableHeader($table) {
         const settings = getSettings($table);
+        const columns = settings.columns || [];
         // Prüfen, ob irgendeine Spalte das Attribut `checkbox` auf `true` hat.
         const hasCheckbox = columns.some(column => column.checkbox === true);
 
@@ -1145,7 +1173,7 @@
         if (settings.showHeader === false) {
             headerClasses.push('d-none')
         }
-        if (typeof settings.classes === 'object' && typeof settings.classes.thead === 'object') {
+        if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('thead')) {
             settings.classes.thead.split(' ').forEach(className => {
                 const name = className.trim();
                 if (!isValueEmpty(name)) {
@@ -1229,8 +1257,9 @@
         return settings.icons.sortNone;
     }
 
-    function buildTableFooter($table, columns, data) {
+    function buildTableFooter($table, data) {
         const settings = getSettings($table);
+        const columns = settings.columns || [];
 
         const footerClasses = [];
         if (settings.showFooter === false) {
@@ -1293,7 +1322,7 @@
             })
         }
 
-        // Nur die Daten der aktuellen Seite an onPostBody übergeben
+        // Nur die Daten der aktuellen Seite an onPostFooter übergeben
         triggerEvent($table, 'post-footer', $tfoot, $table);
         executeFunction(settings.onPostFooter, $tfoot, $table);
     }
@@ -1516,6 +1545,10 @@
                 'data-col-index': colIndex,
                 class: classList.join(' '),
             }).appendTo($tr);
+
+            if (column.width) {
+                $td.css('width', column.width);
+            }
 
             if (column.visible === false) {
                 $td.addClass('d-none');
@@ -1752,6 +1785,12 @@
         executeFunction(settings.onClickRow, row, $tr, column.field);
         triggerEvent($table, 'click-cell', column.field, value, row, $td);
         executeFunction(settings.onClickCell, column.field, value, row, $td);
+        if (settings.clickToSelect === true) {
+            if (showCheckItem($table)) {
+                const checkbox = $tr.find('td[data-role="tableCellCheckbox"]:first input');
+                checkbox.prop('checked', !checkbox.prop('checked')).trigger('change.bs.table');
+            }
+        }
     }
 
     function triggerEvent($table, eventName, ...args) {
@@ -1907,67 +1946,71 @@
     function registerGlobalTableEvents() {
         let searchTimeout;
 
-        /**
-         * Hilfsfunktion – Sammelt relevante Elemente basierend auf e.target und einem Selektor.
-         * @param {Event} e – Das auslösende Event.
-         * @param {String} selector – Der gewünschte Selektor.
-         * @returns {jQuery|null} – Das gefundene relevante Element oder null.
-         */
-        function getRelevantElement(e, selector) {
-            const $el = e.target.tagName === selector.toUpperCase() ? $(e.target) : $(e.target).closest(selector);
-            if (!$el.length) {
-                return null;
-            }
-            return $el;
-        }
+        // Delegiere Events an ein Eltern-Element, z. B. `document`:
+        $(document)
+            .on([
+                'click' + namespace,
+                'change' + namespace,
+                'input' + namespace,
+                'touchstart' + namespace,
+                'mouseenter' + namespace
+            ].join(' '), '.' + wrapperClass, function (e) {
+                const $target = $(e.currentTarget);
 
-        $('.' + wrapperClass)
+                // Stelle sicher, dass nur das äußerste Element Events erhält
+                if ($target.parents('.' + wrapperClass).length > 0) {
+                    return; // Ignoriere verschachtelte `wrapperClass`
+                }
+
+                // Events für das äußere `.wrapperClass` registrieren
+                // Je nach Ereignistyp kannst du hier differenzieren, falls nötig.
+            })
             .on([
                 'click' + namespace,
                 'change' + namespace,
                 'touchstart' + namespace,
-                'mousenter' + namespace,
-            ].join(' '), '[data-child="true"]', function (e) {
+                'mouseenter' + namespace,
+            ].join(' '), `.${wrapperClass} [data-child="true"]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
             })
-            .on('click' + namespace, 'tbody > tr > td', function (e) {
+            .on('click' + namespace, `.${wrapperClass} tbody > tr > td`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $td = $(e.currentTarget);
                 onClickCellAndRow($td);
             })
-            .on('change' + namespace, 'thead [data-role="tableHeaderRadio"]', function (e) {
+            .on('change' + namespace, `.${wrapperClass} thead [data-role="tableHeaderRadio"]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $checkbox = $(e.currentTarget);
-                handleUncheckRadios($checkbox)
+                handleUncheckRadios($checkbox);
             })
-            .on('change' + namespace, `thead [data-role="tableHeaderCheckbox"]`, function (e) {
+            .on('change' + namespace, `.${wrapperClass} thead [data-role="tableHeaderCheckbox"]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $checkbox = $(e.currentTarget);
                 handleCheckOnOrNone($checkbox);
             })
-            .on('change' + namespace, `table tbody [data-role="tableRadio"]`, function (e) {
+            .on('change' + namespace, `.${wrapperClass} table tbody [data-role="tableRadio"]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $checkbox = $(e.currentTarget);
                 handleRadiosByRadioChange($checkbox);
             })
-            .on('change' + namespace, `tbody [data-role="tableCheckbox"]`, function (e) {
+            .on('change' + namespace, `.${wrapperClass} tbody [data-role="tableCheckbox"]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $checkbox = $(e.currentTarget);
                 handleCheckboxChange($checkbox);
             })
-            .on('click' + namespace, `thead th[data-sortable="true"]`, function (e) {
+            .on('click' + namespace, `.${wrapperClass} thead th[data-sortable="true"]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $th = $(e.currentTarget);
                 handleSortOnTheadTh($th);
             })
-            .on('click' + namespace, `[data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
+            .on('click' + namespace, `.${wrapperClass} [data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -1977,7 +2020,7 @@
                 const table = getTableByWrapperId(wrapper.attr('id'));
                 handleClickOnPaginationSize(table, $a);
             })
-            .on('click' + namespace, `[data-role="refresh"]`, function (e) {
+            .on('click' + namespace, `.${wrapperClass} [data-role="refresh"]`, function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -1987,7 +2030,7 @@
                 const table = getTableByWrapperId($wrapper.attr('id'));
                 refresh(table, null, true);
             })
-            .on('input' + namespace, `.${inputSearchClass}`, function (e) {
+            .on('input' + namespace, `.${wrapperClass} .${inputSearchClass}`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $searchField = $(e.currentTarget);
@@ -2006,7 +2049,7 @@
                     performSearch(wrapper);
                 }
             })
-            .on('click' + namespace, `.${wrapperPaginationClass} .page-link`, function (e) {
+            .on('click' + namespace, `.${wrapperClass} .${wrapperPaginationClass} .page-link`, function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();

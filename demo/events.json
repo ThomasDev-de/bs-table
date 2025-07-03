@@ -1,0 +1,86 @@
+[
+  {
+    "functionName": "onAll",
+    "global": "`all.bs.table`",
+    "params": "eventName, ...args",
+    "description": "A global event callback that listens to all events fired by the table. The `eventName` identifies the event being triggered."
+  },
+  {
+    "functionName": "onLoadSuccess",
+    "global": "`load-success.bs.table`",
+    "params": null,
+    "description": "Triggered when data is successfully loaded into the table."
+  },
+  {
+    "functionName": "onLoadError",
+    "global": "`load-error.bs.table`",
+    "params": null,
+    "description": "Triggered when there is an error while loading data into the table."
+  },
+  {
+    "functionName": "onPreBody",
+    "global": "`pre-body.bs.table`",
+    "params": "rows, $table",
+    "description": "Fires before the table body is rendered. Useful for manipulating or preparing data before display."
+  },
+  {
+    "functionName": "onPostBody",
+    "global": "`post-body.bs.table`",
+    "params": "rows, $table",
+    "description": "Fires after the table body is rendered. Can be used for additional DOM manipulations or enhancements."
+  },
+  {
+    "functionName": "onPostFooter",
+    "global": "`post-footer.bs.table`",
+    "params": "$tfoot, $table",
+    "description": "Triggered once the footer is rendered."
+  },
+  {
+    "functionName": "onRefresh",
+    "global": "`refresh.bs.table`",
+    "params": "params",
+    "description": "Triggered when the table is refreshed. Includes the parameters of the refresh request."
+  },
+  {
+    "functionName": "onSort",
+    "global": "`sort.bs.table`",
+    "params": "name, order",
+    "description": "Called when a column is sorted. The `name` parameter defines the column field, and `order` specifies the sort direction."
+  },
+  {
+    "functionName": "onClickCell",
+    "global": "`click-cell.bs.table`",
+    "params": "field, value, row, $td",
+    "description": "Fired when a cell is clicked. Provides field name, its value, the data row, and the clicked cell element."
+  },
+  {
+    "functionName": "onClickRow",
+    "global": "`click-row.bs.table`",
+    "params": "row, $tr, field",
+    "description": "Triggered when a row is clicked. Provides the row data, the table row element, and the field of the clicked cell."
+  },
+  {
+    "functionName": "onCheck",
+    "global": "`check.bs.table`",
+    "params": "row, $input",
+    "description": "Called when a row is checked. Provides the row data and the related checkbox input element."
+  },
+  {
+    "functionName": "onCheckAll",
+    "global": "`check-all.bs.table`",
+    "params": null,
+    "description": "Fires when all rows are checked."
+  },
+  {
+    "functionName": "onUncheck",
+    "global": "`uncheck.bs.table`",
+    "params": "row, $input",
+    "description": "Triggered when a row is unchecked. Provides the row data and the related checkbox input element."
+  },
+  {
+    "functionName": "onUncheckAll",
+    "global": "`uncheck-all.bs.table`",
+    "params": null,
+    "description": "Fires when all rows are unchecked."
+  }
+]

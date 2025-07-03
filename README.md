@@ -1,5 +1,6 @@
 # bs-table
 
+A lightweight and user-friendly table plugin for Bootstrap, designed to efficiently manage tables in a streamlined, Bootstrap-themed web environment.
 ## Options
 
 ### `classes` (Type: `string | object`, Default: `'table'`)
@@ -284,8 +285,8 @@ const options = {
             checkbox: true // Enables row selection via checkboxes
         },
         {
+            visible:false,
             field: 'id',
-            title: 'ID'
         },
         {
             field: 'title',

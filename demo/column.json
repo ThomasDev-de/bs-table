@@ -1,0 +1,216 @@
+[
+  {
+    "option": "field",
+    "type": "string",
+    "required": true,
+    "default": "undefined",
+    "description": "The key in the data object to display in this column.",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id"
+        }
+      }
+    ]
+  },
+  {
+    "option": "title",
+    "type": "string",
+    "required": false,
+    "default": "undefined",
+    "description": "The header text of the column.",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID"
+        }
+      }
+    ]
+  },
+  {
+    "option": "sortable",
+    "type": "boolean",
+    "required": false,
+    "default": "undefined",
+    "description": "Whether the column can be sorted (`true` or `false`)",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID",
+          "sortable": true
+        }
+      }
+    ]
+  },
+  {
+    "option": "align",
+    "type": "string",
+    "required": false,
+    "default": "undefined",
+    "description": "Sets horizontal alignment (`'left'`, `'start'`, `'center'`, `'right'` or `'end'`)",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end"
+        }
+      }
+    ]
+  },
+  {
+    "option": "valign",
+    "type": "string",
+    "required": false,
+    "default": "undefined",
+    "description": "Sets vertical alignment (`'top'`, `'middle'`, or `'bottom'`).",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end",
+          "valign": "middle"
+        }
+      }
+    ]
+  },
+  {
+    "option": "halign",
+    "type": "string",
+    "required": false,
+    "default": "undefined",
+    "description": "Sets horizontal alignment for the header (`'left'`, `'start'`, `'center'`, `'right'` or `'end'`).",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end",
+          "valign": "middle",
+          "halign": "start"
+        }
+      }
+    ]
+  },
+  {
+    "option": "falign",
+    "type": "string",
+    "required": false,
+    "default": "undefined",
+    "description": "Sets horizontal alignment for the footer (`'left'`, `'start'`, `'center'`, `'right'` or `'end'`).",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end",
+          "valign": "middle",
+          "halign": "start",
+          "falign": "center"
+        }
+      }
+    ]
+  },
+  {
+    "option": "visible",
+    "type": "boolean",
+    "required": false,
+    "default": true,
+    "description": "Whether the column should be initially visible.",
+    "examples": [
+      {
+        "language": "json",
+        "code": {
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end",
+          "valign": "middle",
+          "halign": "start",
+          "falign": "center",
+          "visible": true
+        }
+      }
+    ]
+  },
+  {
+    "option": "`checkbox` or `radio`",
+    "type": "boolean",
+    "required": false,
+    "default": "undefined",
+    "description": "Displays a checkbox or a radio element in the first column.",
+    "examples": [
+      {
+        "language": "json",
+        "code": [{
+          "checkbox": true
+        },{
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end",
+          "valign": "middle",
+          "halign": "start",
+          "falign": "center",
+          "visible": true
+        }]
+      }
+    ]
+  },
+  {
+    "option": "formatter",
+    "type": "string | function",
+    "required": false,
+    "default": "undefined",
+    "description": "A custom function to format the cell values.",
+    "examples": [
+      {
+        "language": "json",
+        "code": [{
+          "checkbox": true
+        },{
+          "field": "id",
+          "title": "ID",
+          "sortable": true,
+          "align": "end",
+          "valign": "middle",
+          "halign": "start",
+          "falign": "center",
+          "visible": true,
+          "formatter": "function(value, row, index, $td){}"
+        }]
+      },
+      {
+        "language": "javascript",
+        "code": "formatter: function(value, row, index, $td) {\n    return value.toUpperCase();\n}"
+      }
+    ]
+  },
+  {
+    "option": "events",
+    "type": "object",
+    "required": false,
+    "default": "undefined",
+    "description": "A custom event handler for the column.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": " events: {\n    \"click .any\": (e, id, row, index) => {\n        e.preventDefault();\n        alert(id);\n    },\n    ...\n}"
+      }
+    ]
+  }
+]
