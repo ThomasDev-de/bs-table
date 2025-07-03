@@ -1,6 +1,7 @@
 {
   "name": "webcito/bs-table",
   "description": "description",
+  "version": "1.0.0",
   "minimum-stability": "stable",
   "license": "proprietary",
   "authors": [
