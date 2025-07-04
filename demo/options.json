@@ -16,12 +16,28 @@
           "thead": "table-dark h4 text-uppercase",
           "tbody": "table-group-divider",
           "tfoot": "table-warning",
-          "caption": "table-primary"
+          "caption": "table-primary",
+          "active" : "table-active"
         }
       },
       {
         "language": "html",
         "code": "<table data-classes='table table-borderless'></table>"
+      }
+    ]
+  },{
+    "option": "ajaxOptions",
+    "type": "function",
+    "default": "undefined",
+    "description": "The property allows you to customize the AJAX request settings used to fetch data for the table. You can provide this as a function to dynamically modify properties such as the HTTP method, request headers, or authentication tokens before the request is made. `ajaxOptions`\n",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    ajaxOptions(url, params) {\n        return {\n            method: \"POST\",\n            beforeSend (xhr) {\n                xhr.setRequestHeader('custom-auth-token', 'custom-auth-token');\n            }        \n        }\n    }\n});"
+      },
+      {
+        "language": "html",
+        "code": "<table data-ajax-options='myFunction'></table>"
       }
     ]
   },
@@ -44,7 +60,7 @@
   {
     "option": "pagination",
     "type": "boolean",
-    "default": true,
+    "default": false,
     "description": "If set to `true`, the table includes pagination controls.  \nIf set to `false`, no pagination will be used.\nWhen enabled, parameters such as `limit` and `offset` are included in server requests.",
     "examples": [
       {
@@ -156,7 +172,7 @@
   {
     "option": "search",
     "type": "boolean",
-    "default": true,
+    "default": false,
     "description": "Enables or disables the search bar above the table.  \nWhen enabled, search parameters are included in server requests as the `search` attribute.",
     "examples": [
       {
@@ -204,16 +220,16 @@
   {
     "option": "showRefresh",
     "type": "boolean",
-    "default": true,
+    "default": false,
     "description": "Displays a refresh button above the table, allowing the user to reload the data.",
     "examples": [
       {
         "language": "javascript",
-        "code": "$('#table').bsTable({\n    showRefresh: false\n})"
+        "code": "$('#table').bsTable({\n    showRefresh: true\n})"
       },
       {
         "language": "html",
-        "code": "<table data-show-refresh='false'></table>"
+        "code": "<table data-show-refresh='true'></table>"
       }
     ]
   },
@@ -404,6 +420,22 @@
       {
         "language": "html",
         "code": "<table data-caption='look at my table'></table>"
+      }
+    ]
+  },
+  {
+    "option": "clickToSelect",
+    "type": "boolean",
+    "default": false,
+    "description": "If there is a column that occupies a radio or a checkbox, it will be toggled when the line is clicked.",
+    "examples": [
+      {
+        "language": "javascript",
+        "code": "$('#table').bsTable({\n    clickToSelect: true\n})"
+      },
+      {
+        "language": "html",
+        "code": "<table data-click-to-select='true'></table>"
       }
     ]
   }

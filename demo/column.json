@@ -148,7 +148,7 @@
     ]
   },
   {
-    "option": "`checkbox` or `radio`",
+    "option": "checkbox | radio",
     "type": "boolean",
     "required": false,
     "default": "undefined",

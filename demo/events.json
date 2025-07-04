@@ -24,6 +24,12 @@
     "description": "Fires before the table body is rendered. Useful for manipulating or preparing data before display."
   },
   {
+    "functionName": "onPostHeader",
+    "global": "`post-header.bs.table`",
+    "params": "$thead, $table",
+    "description": "Triggered once the header is rendered."
+  },
+  {
     "functionName": "onPostBody",
     "global": "`post-body.bs.table`",
     "params": "rows, $table",
