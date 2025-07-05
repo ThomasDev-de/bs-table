@@ -27,6 +27,7 @@
             showHeader: true,
             showFooter: false,
             showToggle: false,
+            cardView: false,
             url: null,
             data: null,
             columns: [],
@@ -292,7 +293,7 @@
 
         const bsTable = {
             settings: settings,
-            toggleView: false,
+            toggleView: settings.cardView === true,
             response: []
         };
 
