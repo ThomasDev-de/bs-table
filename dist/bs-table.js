@@ -1105,6 +1105,99 @@
             </div>`;
             $(template).appendTo($wrapper);
         },
+        pagination($table, totalRows) {
+            const settings = getSettings($table);
+
+            // Berechne die Gesamtanzahl der Seiten
+            const totalPages = Math.ceil(totalRows / settings.pageSize);
+            const currentPage = settings.pageNumber || 1;
+
+            const $paginationWrapper = $('<nav></nav>', {'data-role': 'tablePagination'});
+
+            const $paginationList = $('<ul></ul>', {
+                class: 'pagination justify-content-center m-0'
+            }).appendTo($paginationWrapper);
+
+
+            // "Previous"-Button
+            const $prevItem = $('<li></li>', {
+                'data-role': 'previous',
+                class: `page-item ${currentPage === 1 ? 'disabled' : ''}`
+            }).appendTo($paginationList);
+
+            $('<a></a>', {
+                class: 'page-link',
+                href: '#',
+                tabindex: currentPage === 1 ? '-1' : '',
+                'aria-disabled': currentPage === 1 ? 'true' : 'false',
+                html: `<i class="${settings.icons.paginationprev}"></i>`,
+            }).appendTo($prevItem).on('click', function (e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    settings.pageNumber = currentPage - 1;
+                    setSettings($table, settings);
+                    refresh($table);
+                }
+            });
+
+            // Sichtbare Seiten (berechne die Seitennummern)
+            const visiblePages = $.bsTable.utils.calculateVisiblePagesOnNavigation(totalPages, currentPage);
+
+            visiblePages.forEach(page => {
+                if (page === "...") {
+                    $('<li></li>', {
+                        class: 'page-item disabled'
+                    }).append(
+                        $('<a></a>', {
+                            class: 'page-link',
+                            text: '...'
+                        })
+                    ).appendTo($paginationList);
+                } else {
+                    const $pageItem = $('<li></li>', {
+                        class: `page-item ${page === currentPage ? 'active' : ''}`
+                    }).appendTo($paginationList);
+
+                    $('<a></a>', {
+                        class: 'page-link',
+                        href: '#',
+                        text: page
+                    }).appendTo($pageItem).on('click', function (e) {
+                        e.preventDefault();
+                        if (page !== currentPage) {
+                            settings.pageNumber = page;
+                            setSettings($table, settings);
+                            refresh($table);
+                        }
+                    });
+                }
+            });
+
+            // "Next"-Button
+            const $nextItem = $('<li></li>', {
+
+                class: `page-item ${currentPage === totalPages ? 'disabled' : ''}`
+            }).appendTo($paginationList);
+
+            $('<a></a>', {
+                'data-role': 'next',
+                class: 'page-link',
+                href: '#',
+                tabindex: currentPage === totalPages ? '-1' : '',
+                'aria-disabled': currentPage === totalPages ? 'true' : 'false',
+                html: `<i class="${settings.icons.paginationNext}"></i>`,
+            }).appendTo($nextItem).on('click', function (e) {
+                e.preventDefault();
+                if (currentPage < totalPages) {
+                    settings.pageNumber = currentPage + 1;
+                    setSettings($table, settings);
+                    refresh($table);
+                }
+            });
+
+
+            return $paginationWrapper;
+        },
         paginationDetails($table, totalRows) {
             const settings = getSettings($table);
             const wrapper = getClosestWrapper($table);
@@ -1178,7 +1271,7 @@
 
             if (settings.pagination && pageSize !== 0) {
                 const $wrapper = getWrapper($table);
-                const $paginationHtml = createPagination($table, totalRows);
+                const $paginationHtml = this.pagination($table, totalRows);
                 const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
                 const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
                 if (showOnTop) {
@@ -1536,100 +1629,6 @@
             $tbodyTds.addClass('d-none');
             $tfootCells.addClass('d-none');
         }
-    }
-
-    function createPagination($table, totalRows) {
-        const settings = getSettings($table);
-
-        // Berechne die Gesamtanzahl der Seiten
-        const totalPages = Math.ceil(totalRows / settings.pageSize);
-        const currentPage = settings.pageNumber || 1;
-
-        const $paginationWrapper = $('<nav></nav>', {'data-role': 'tablePagination'});
-
-        const $paginationList = $('<ul></ul>', {
-            class: 'pagination justify-content-center m-0'
-        }).appendTo($paginationWrapper);
-
-
-        // "Previous"-Button
-        const $prevItem = $('<li></li>', {
-            'data-role': 'previous',
-            class: `page-item ${currentPage === 1 ? 'disabled' : ''}`
-        }).appendTo($paginationList);
-
-        $('<a></a>', {
-            class: 'page-link',
-            href: '#',
-            tabindex: currentPage === 1 ? '-1' : '',
-            'aria-disabled': currentPage === 1 ? 'true' : 'false',
-            html: `<i class="${settings.icons.paginationprev}"></i>`,
-        }).appendTo($prevItem).on('click', function (e) {
-            e.preventDefault();
-            if (currentPage > 1) {
-                settings.pageNumber = currentPage - 1;
-                setSettings($table, settings);
-                refresh($table);
-            }
-        });
-
-        // Sichtbare Seiten (berechne die Seitennummern)
-        const visiblePages = $.bsTable.utils.calculateVisiblePagesOnNavigation(totalPages, currentPage);
-
-        visiblePages.forEach(page => {
-            if (page === "...") {
-                $('<li></li>', {
-                    class: 'page-item disabled'
-                }).append(
-                    $('<a></a>', {
-                        class: 'page-link',
-                        text: '...'
-                    })
-                ).appendTo($paginationList);
-            } else {
-                const $pageItem = $('<li></li>', {
-                    class: `page-item ${page === currentPage ? 'active' : ''}`
-                }).appendTo($paginationList);
-
-                $('<a></a>', {
-                    class: 'page-link',
-                    href: '#',
-                    text: page
-                }).appendTo($pageItem).on('click', function (e) {
-                    e.preventDefault();
-                    if (page !== currentPage) {
-                        settings.pageNumber = page;
-                        setSettings($table, settings);
-                        refresh($table);
-                    }
-                });
-            }
-        });
-
-        // "Next"-Button
-        const $nextItem = $('<li></li>', {
-
-            class: `page-item ${currentPage === totalPages ? 'disabled' : ''}`
-        }).appendTo($paginationList);
-
-        $('<a></a>', {
-            'data-role': 'next',
-            class: 'page-link',
-            href: '#',
-            tabindex: currentPage === totalPages ? '-1' : '',
-            'aria-disabled': currentPage === totalPages ? 'true' : 'false',
-            html: `<i class="${settings.icons.paginationNext}"></i>`,
-        }).appendTo($nextItem).on('click', function (e) {
-            e.preventDefault();
-            if (currentPage < totalPages) {
-                settings.pageNumber = currentPage + 1;
-                setSettings($table, settings);
-                refresh($table);
-            }
-        });
-
-
-        return $paginationWrapper;
     }
 
     function getIconBySortOrder($table, sortOrder) {
