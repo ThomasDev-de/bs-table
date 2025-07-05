@@ -212,6 +212,7 @@
         searchInput: 'bs-table-search-input', // The search input field
         buttons: 'bs-table-buttons', // Kontainer für die Buttons im TopKontainer
         btnRefresh: 'bs-table-btn-refresh',
+        btnToggle: 'bs-table-btn-toggle-view',
         toolbar: 'bs-table-toolbar', // Toolbar Container
         pagination: 'bs-table-pagination', // Wrapper for the pagination controls
         paginationDetails: 'bs-table-pagination-details', // Wrapper for detailed pagination information
@@ -291,6 +292,8 @@
 
         const bsTable = {
             settings: settings,
+            toggleView: false,
+            response: []
         };
 
         // Initialize the table with data
@@ -496,8 +499,8 @@
 
         fetchData($table, triggerRefresh)
             .then(() => {
-                triggerEvent($table, 'load-success', $table.data('response'));
-                $.bsTable.utils.executeFunction(settings.onLoadSuccess, $table.data('response'));
+                triggerEvent($table, 'load-success', getResponse($table));
+                $.bsTable.utils.executeFunction(settings.onLoadSuccess, getResponse($table));
                 build.table($table);
             })
             .catch(error => {
@@ -506,6 +509,11 @@
             .finally(() => {
                 methods.hideLoading($table);
             })
+    }
+
+    function toggleView($table) {
+        setToggleView($table, !getToggleView($table));
+        build.table($table);
     }
 
     /**
@@ -634,7 +642,7 @@
                     const responseBefore = {rows: filteredData, total: totalRows};
                     const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, responseBefore);
 
-                    $table.data('response', responseAfter ?? responseBefore);
+                    setResponse($table, responseAfter ?? responseBefore);
                     if (settings.debug) {
                         console.groupEnd();
                     }
@@ -658,7 +666,7 @@
                     const responseBefore = {rows: [], total: totalRows};
                     const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, responseBefore);
 
-                    $table.data('response', responseAfter ?? responseBefore);
+                    setResponse($table, responseAfter ?? responseBefore);
                     if (settings.debug) {
                         console.groupEnd();
                     }
@@ -675,7 +683,7 @@
                 const responseBefore = {rows: slicedData, total: totalRows};
                 const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, responseBefore);
 
-                $table.data('response', responseAfter ?? responseBefore);
+                setResponse($table, responseAfter ?? responseBefore);
                 if (settings.debug) {
                     console.groupEnd();
                 }
@@ -781,7 +789,6 @@
         });
     }
 
-
     const build = {
         structure($table) {
             return new Promise((resolve, reject) => {
@@ -829,7 +836,7 @@
         },
         dropdownPageList($table) {
             const settings = getSettings($table);
-            const response = $table.data('response') || {rows: [], total: 0};
+            const response = getResponse($table);
             const totalRows = response.total || (response.rows ? response.rows.length : 0);
             // Berechnung der Anzeige-Daten (Start- und Endzeilen)
             const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
@@ -849,7 +856,7 @@
                 'id': 'dropdownPaginationPageSize',
                 'data-bs-toggle': 'dropdown',
                 'aria-expanded': 'false'
-            }).html((pageSize === totalRows ? 'All' : pageSize) + ' <i class="bi bi-arrows-vertical"></i>');
+            }).html((pageSize === totalRows ? 'All' : pageSize));
 
             const $dropdownMenu = $('<ul>', {
                 'class': 'dropdown-menu dropdown-menu-end  bg-gradient ',
@@ -997,9 +1004,10 @@
             }
 
             if (settings.showToggle === true) {
-                const $refreshButton = $(`<button>`, {
-                    class: 'btn btn-secondary ' + bsTableClasses.btnRefresh,
-                    html: `<i class="${settings.icons.toggleOff}"></i>`,
+                const toggleIcon = getToggleView($table) ? settings.icons.toggleOn : settings.icons.toggleOff;
+                const $toggleButton = $(`<button>`, {
+                    class: 'btn btn-secondary ' + bsTableClasses.btnToggle,
+                    html: `<i class="${toggleIcon}"></i>`,
                 }).prependTo($btnContainer);
             }
 
@@ -1007,7 +1015,7 @@
                 this.dropdownColumns($table).prependTo($btnContainer);
             }
 
-            if (!($.bsTable.utils.isValueEmpty(settings.pageList) || settings.pagination === false || settings.pageSize === 0)) {
+            if (!($.bsTable.utils.isValueEmpty(settings.pageList) || settings.pagination === false)) {
                 this.dropdownPageList($table).prependTo($btnContainer);
             }
         },
@@ -1130,7 +1138,7 @@
                 console.groupCollapsed("Render Table");
             }
             const wrapper = getClosestWrapper($table);
-            const response = $table.data('response') || {rows: [], total: 0};
+            const response = getResponse($table);
             if (settings.debug) {
                 console.log("Response:", response);
             }
@@ -1156,7 +1164,6 @@
             const $topPaginationContainer = getPaginationContainer($table, true).empty();
             const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
             build.paginationDetails($table, totalRows);
-            // $paginationDetails.appendTo();
             const $tableTopContainer = getTableTopContainer($table);
             const $btnContainer = $tableTopContainer.find(`.${bsTableClasses.buttons}:first`);
 
@@ -1171,16 +1178,13 @@
 
             if (settings.pagination && pageSize !== 0) {
                 const $wrapper = getWrapper($table);
-
                 const $paginationHtml = createPagination($table, totalRows);
-
-
-                if (settings.paginationVAlign === 'top' || settings.paginationVAlign === 'both') {
-                    // $topPaginationContainer.append($paginationDetailHtml);
+                const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
+                const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
+                if (showOnTop) {
                     $topPaginationContainer.append($paginationHtml.clone());
                 }
-
-                if (settings.paginationVAlign === 'bottom' || settings.paginationVAlign === 'both') {
+                if (showOnBottom) {
                     $bottomPaginationContainer.append($paginationHtml.clone());
                 }
             }
@@ -1188,7 +1192,7 @@
         thead($table) {
             const settings = getSettings($table);
             const columns = settings.columns || [];
-            const showHeader = columns.length && settings.showHeader === true && settings.showToggle === false;
+            const showHeader = columns.length && settings.showHeader === true && !getToggleView($table);
             const headerClasses = [];
             if (!showHeader) {
                 headerClasses.push('d-none')
@@ -1203,6 +1207,9 @@
             }
 
             const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
+            if(showHeader) {
+                $thead.removeClass('d-none');
+            }
             const $tr = $('<tr></tr>').appendTo($thead);
             if (showHeader) {
                 if (showCheckItem($table)) {
@@ -1279,6 +1286,7 @@
             const columns = hasColumns ? settings.columns : [];
             const hasCheckbox = columns.some(column => column.checkbox === true);
             const $tbody = $table.children('tbody').empty();
+            const inToggleView = getToggleView($table);
 
             let bodyClasses = [];
             if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('tbody')) {
@@ -1299,7 +1307,7 @@
                     const $tr = $('<tr>', {
                         'data-index': trIndex,
                     }).appendTo($tbody);
-                    if (settings.showToggle === true) {
+                    if (getToggleView($table)) {
                         $tr.addClass('d-flex flex-column');
                     }
                     $tr.data('row', row);
@@ -1311,7 +1319,7 @@
                         let colIndex = 0;
                         settings.columns.forEach(column => {
                             if (column.checkbox === true || column.radio === true) return;
-                            this.tbodyTd(column, row, $tr, colIndex);
+                            this.tbodyTd(column, row, $tr, colIndex, inToggleView);
                             colIndex++;
                         });
                     }
@@ -1330,7 +1338,7 @@
             triggerEvent($table, 'post-body', rows, $table);
             $.bsTable.utils.executeFunction(settings.onPostBody, rows, $table);
         },
-        tbodyTd(column, row, $tr, colIndex) {
+        tbodyTd(column, row, $tr, colIndex, inToggleView) {
             if (column.field) {
                 const trIndex = $tr.data('index');
                 let classList = [];
@@ -1365,7 +1373,9 @@
                     class: classList.join(' '),
                 }).appendTo($tr);
 
-                if (column.width) {
+                if(inToggleView) {
+                    $td.css('width', '100%');
+                } else if (column.width) {
                     $td.css('width', column.width);
                 }
 
@@ -1415,7 +1425,7 @@
         tfoot($table, data) {
             const settings = getSettings($table);
             const columns = settings.columns || [];
-            const showFooter = columns.length && settings.showFooter === true && settings.showToggle === false;
+            const showFooter = columns.length && settings.showFooter === true && !getToggleView($table);
 
             const footerClasses = [];
             if (!showFooter) {
@@ -1431,6 +1441,11 @@
             }
 
             const $tfoot = $table.children('tfoot').empty().addClass(footerClasses.join(' '));
+
+            if (showFooter) {
+                $tfoot.removeClass('d-none');
+            }
+
             const $tr = $('<tr></tr>').appendTo($tfoot);
 
             if (showFooter) {
@@ -1731,6 +1746,39 @@
         return $table.data('bsTable').settings;
     }
 
+    function setSettings($table, settings) {
+        const data = $table.data('bsTable');
+        if (data) {
+            data.settings = settings;
+        }
+        $table.data('bsTable', data);
+    }
+
+    function getResponse($table) {
+        return $table.data('bsTable').response || {rows: [], total: 0};
+    }
+
+    function setResponse($table, response) {
+        const data = $table.data('bsTable');
+        if (data) {
+            data.response = response || {rows: [], total: 0};
+        }
+        $table.data('bsTable', data);
+    }
+
+
+    function getToggleView($table) {
+        return $table.data('bsTable').toggleView;
+    }
+
+    function setToggleView($table, toggleView) {
+        const data = $table.data('bsTable');
+        if (data) {
+            data.toggleView = toggleView;
+        }
+        $table.data('bsTable', data);
+    }
+
     function getWrapper($table) {
         return $table.closest(`.${bsTableClasses.wrapper}`);
     }
@@ -1741,7 +1789,7 @@
 
     function getTableBottomContainer($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
-        return $wrapper.children(`${bsTableClasses.bottomContainer}`).first();
+        return $wrapper.children(`.${bsTableClasses.bottomContainer}`).first();
     }
 
     function getTableTopContainer($table) {
@@ -1807,13 +1855,6 @@
         return $overlay.length > 0 ? $overlay : $(); // Fallback: leeres jQuery-Objekt, falls kein Overlay gefunden wurde
     }
 
-    function setSettings($table, settings) {
-        const data = $table.data('bsTable');
-        if (data) {
-            data.settings = settings;
-        }
-        $table.data('bsTable', data);
-    }
 
     function handleSortOnTheadTh($th) {
         const wrapper = getClosestWrapper($th);
@@ -1934,7 +1975,7 @@
 
     function handleClickOnPaginationSize($table, $a) {
         const settings = getSettings($table);
-        const response = $table.data('response');
+        const response = getResponse($table);
         settings.pageSize = parseInt($a.data('page'));
         const totalRows = response.total;
         const maxPageNumber = Math.ceil(totalRows / settings.pageSize);
@@ -2151,6 +2192,16 @@
                 const table = getTableByWrapperId($wrapper.attr('id'));
                 refresh(table, null, true);
             })
+            .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.btnToggle}`, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $btn = $(e.currentTarget);
+                if (!$btn.length) return;
+                const $wrapper = getClosestWrapper($btn);
+                const table = getTableByWrapperId($wrapper.attr('id'));
+                toggleView(table);
+            })
             .on('input' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.searchInput}`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -2179,7 +2230,7 @@
                 const wrapper = getClosestWrapper($pageLink);
                 const table = getTableByWrapperId(wrapper.attr('id'));
                 const settings = getSettings(table);
-                const response = table.data('response') || {rows: [], total: 0};
+                const response = getResponse(table);
                 const totalPages = Math.ceil(response.total / settings.pageSize);
                 if ($pageLink.parent().hasClass('disabled') || $pageLink.parent().hasClass('active')) {
                     return;

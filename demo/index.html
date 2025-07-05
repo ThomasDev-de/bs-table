@@ -63,7 +63,7 @@
     </div>
 </nav>
 
-<div class="container-fluid py-5 mt-5">
+<div class="container py-5 mt-5">
     <h1>$.fn.bsTable</h1>
     <p>The plugin was born from the idea of <a href="https://github.com/wenzhixin/bootstrap-table">wenzhixin/bootstrap-table</a>.
     </p>
@@ -157,6 +157,9 @@
             showColumns: true,
             showRefresh: true,
             pagination: true,
+            sidePagination: 'client',
+            paginationVAlign: 'both',
+            pageSize:2,
             showToggle: true,
             onPostBody: function (rows, $table) {
                 const elements = $table.find('code');
@@ -295,7 +298,6 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                         // align: 'end',
                         valign: 'middle',
                         formatter:formatFirstRow,
-
                     },
                     {
                         title: 'Description',
