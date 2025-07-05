@@ -159,9 +159,28 @@
             pagination: true,
             sidePagination: 'client',
             paginationVAlign: 'both',
-            pageSize:0,
+            pageSize:10,
             showToggle: true,
+            showCustomView: true,
             cardView: true,
+            customView: true,
+            customViewFormatter(rows) {
+                const ret = ['<div class="container-fluid"><div class="row row-cols-xl-3 row-cols-md-2 row-cols-1 py-3">'];
+                let index = 0;
+                rows.map(row => {
+                    const examples = renderCodeTabs(row.examples, index);
+                    ret.push(`<div class="col mb-3">
+                        <div class="card card-body">
+                            <h5 class="card-title">${row.option}</h5>
+                            <p class="card-text">${formatMarkdownToHtml(row.description)}</p>
+                            ${examples}
+                        </div>
+                    </div>`);
+                    index++;
+                });
+                ret.push('</div></div>');
+                return ret.join('');
+            },
             onPostBody: function (rows, $table) {
                 const elements = $table.find('code');
                 elements.each(function (index, element) {
@@ -217,6 +236,7 @@
                 sortName: 'functionName',
                 data: data,
                 showRefresh: false,
+                customView: false,
                 caption: {
                     text: "Table Events",
                     onTop: true,

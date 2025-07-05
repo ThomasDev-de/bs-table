@@ -27,11 +27,15 @@
             showHeader: true,
             showFooter: false,
             showToggle: false,
+            showColumns: false,
             cardView: false,
+            showCustomView: false,
+            customView: false,
+            customViewFormatter(rows) {
+            },
             url: null,
             data: null,
             columns: [],
-            showColumns: false,
             minimumCountColumns: 1,
             idField: null,
             clickToSelect: false,
@@ -45,6 +49,8 @@
                 paginationprev: 'bi bi-chevron-left',
                 toggleOff: 'bi bi-toggle-off',
                 toggleOn: 'bi bi-toggle-on',
+                customViewOff: 'bi bi-columns-gap',
+                customViewOn: 'bi bi-list',
             },
             rowStyle(row, index, $tr) {
             },
@@ -214,6 +220,7 @@
         buttons: 'bs-table-buttons', // Kontainer für die Buttons im TopKontainer
         btnRefresh: 'bs-table-btn-refresh',
         btnToggle: 'bs-table-btn-toggle-view',
+        btnCustomView: 'bs-table-btn-custom-view',
         toolbar: 'bs-table-toolbar', // Toolbar Container
         pagination: 'bs-table-pagination', // Wrapper for the pagination controls
         paginationDetails: 'bs-table-pagination-details', // Wrapper for detailed pagination information
@@ -294,6 +301,7 @@
         const bsTable = {
             settings: settings,
             toggleView: settings.cardView === true,
+            toggleCustomView: settings.customView === true,
             response: []
         };
 
@@ -514,6 +522,12 @@
 
     function toggleView($table) {
         setToggleView($table, !getToggleView($table));
+        setToggleCustomView($table, false);
+        build.table($table);
+    }
+    function toggleCustomView($table) {
+        setToggleCustomView($table, !getToggleCustomView($table));
+        setToggleView($table, false);
         build.table($table);
     }
 
@@ -892,6 +906,8 @@
                 return null; // Keine Spalten vorhanden
             }
 
+            const disabledClass = getToggleCustomView($table) ? 'disabled' : '';
+
             // Haupt-Wrapper des Dropdowns
             const $dropdownWrapper = $('<div>', {
                 'class': 'dropdown btn-group',
@@ -900,7 +916,7 @@
 
             // Dropdown-Toggle-Button
             const $dropdownToggle = $('<button>', {
-                'class': 'btn btn-secondary dropdown-toggle',
+                'class': 'btn btn-secondary dropdown-toggle ' + disabledClass,
                 'type': 'button',
                 'id': 'dropdownColumnVisibility',
                 'data-bs-toggle': 'dropdown',
@@ -1008,6 +1024,13 @@
                 const toggleIcon = getToggleView($table) ? settings.icons.toggleOn : settings.icons.toggleOff;
                 const $toggleButton = $(`<button>`, {
                     class: 'btn btn-secondary ' + bsTableClasses.btnToggle,
+                    html: `<i class="${toggleIcon}"></i>`,
+                }).prependTo($btnContainer);
+            }
+            if (settings.showCustomView === true) {
+                const toggleIcon = getToggleCustomView($table) ? settings.icons.customViewOn : settings.icons.customViewOff;
+                const $toggleButton = $(`<button>`, {
+                    class: 'btn btn-secondary ' + bsTableClasses.btnCustomView,
                     html: `<i class="${toggleIcon}"></i>`,
                 }).prependTo($btnContainer);
             }
@@ -1286,7 +1309,7 @@
         thead($table) {
             const settings = getSettings($table);
             const columns = settings.columns || [];
-            const showHeader = columns.length && settings.showHeader === true && !getToggleView($table);
+            const showHeader = columns.length && settings.showHeader === true && !getToggleView($table) && !getToggleCustomView($table);
             const headerClasses = [];
             if (!showHeader) {
                 headerClasses.push('d-none')
@@ -1301,7 +1324,7 @@
             }
 
             const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
-            if(showHeader) {
+            if (showHeader) {
                 $thead.removeClass('d-none');
             }
             const $tr = $('<tr></tr>').appendTo($thead);
@@ -1381,6 +1404,8 @@
             const hasCheckbox = columns.some(column => column.checkbox === true);
             const $tbody = $table.children('tbody').empty();
             const inToggleView = getToggleView($table);
+            const inToggleCustomView = getToggleCustomView($table);
+            const hasResponse = rows && rows.length > 0;
 
             let bodyClasses = [];
             if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('tbody')) {
@@ -1394,8 +1419,21 @@
 
             $tbody.addClass(bodyClasses.join(' '));
 
-            if (rows && rows.length) {
-
+            if (!hasResponse) {
+                const $tr = $('<tr></tr>').appendTo($tbody);
+                const $td = $('<td>', {
+                    colspan: getCountColumns($table),
+                    class: 'text-center',
+                    html: settings.formatNoMatches(),
+                }).appendTo($tr);
+            } else if (inToggleCustomView) {
+                const customContent = $.bsTable.utils.executeFunction(settings.customViewFormatter, rows);
+                const $tr = $('<tr></tr>').appendTo($tbody);
+                const $td = $('<td>', {
+                    colspan: getCountColumns($table),
+                    html: customContent ?? 'customViewFormatter missing',
+                }).appendTo($tr);
+            } else {
                 let trIndex = 0;
                 rows.forEach(row => {
                     const $tr = $('<tr>', {
@@ -1419,13 +1457,6 @@
                     }
                     trIndex++;
                 })
-            } else {
-                const $tr = $('<tr></tr>').appendTo($tbody);
-                const $td = $('<td>', {
-                    colspan: getCountColumns($table),
-                    class: 'text-center',
-                    html: settings.formatNoMatches(),
-                }).appendTo($tr);
             }
 
             // Nur die Daten der aktuellen Seite an onPostBody übergeben
@@ -1467,7 +1498,7 @@
                     class: classList.join(' '),
                 }).appendTo($tr);
 
-                if(inToggleView) {
+                if (inToggleView) {
                     $td.css('width', '100%');
                 } else if (column.width) {
                     $td.css('width', column.width);
@@ -1519,7 +1550,7 @@
         tfoot($table, data) {
             const settings = getSettings($table);
             const columns = settings.columns || [];
-            const showFooter = columns.length && settings.showFooter === true && !getToggleView($table);
+            const showFooter = columns.length && settings.showFooter === true && !getToggleView($table) && !getToggleCustomView($table);
 
             const footerClasses = [];
             if (!showFooter) {
@@ -1769,6 +1800,18 @@
 
     function getToggleView($table) {
         return $table.data('bsTable').toggleView;
+    }
+
+    function getToggleCustomView($table) {
+        return $table.data('bsTable').toggleCustomView;
+    }
+
+    function setToggleCustomView($table, toggle) {
+        const data = $table.data('bsTable');
+        if (data) {
+            data.toggleCustomView = toggle;
+        }
+        $table.data('bsTable', data);
     }
 
     function setToggleView($table, toggleView) {
@@ -2136,7 +2179,7 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
             })
-            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr > td`, function (e) {
+            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr[data-index] > td`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $td = $(e.currentTarget);
@@ -2201,6 +2244,16 @@
                 const $wrapper = getClosestWrapper($btn);
                 const table = getTableByWrapperId($wrapper.attr('id'));
                 toggleView(table);
+            })
+            .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.btnCustomView}`, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $btn = $(e.currentTarget);
+                if (!$btn.length) return;
+                const $wrapper = getClosestWrapper($btn);
+                const table = getTableByWrapperId($wrapper.attr('id'));
+                toggleCustomView(table);
             })
             .on('input' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.searchInput}`, function (e) {
                 e.stopPropagation();
