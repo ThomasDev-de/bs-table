@@ -35,6 +35,20 @@
             text-align: right;
         }
 
+        .grid .grid-item {
+            float: left;
+            width: 387px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+
+        @media (max-width: 576px) {
+            .grid .grid-item {
+                width: 350px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -110,8 +124,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 
 
+<!--suppress JSUnresolvedReference -->
 <script>
     $(document).ready(function () {
 
@@ -164,12 +180,12 @@
             showCustomView: true,
             cardView: true,
             customView: true,
-            customViewFormatter(rows) {
-                const ret = ['<div class="container-fluid"><div class="row row-cols-xl-3 row-cols-md-2 row-cols-1 py-3">'];
+            onCustomView(rows, $td) {
+                const ret = ['<div class=""><div class="grid mx-auto">'];
                 let index = 0;
                 rows.map(row => {
                     const examples = renderCodeTabs(row.examples, index);
-                    ret.push(`<div class="col mb-3">
+                    ret.push(`<div class="grid-item">
                         <div class="card card-body">
                             <h5 class="card-title">${row.option}</h5>
                             <p class="card-text">${formatMarkdownToHtml(row.description)}</p>
@@ -179,13 +195,18 @@
                     index++;
                 });
                 ret.push('</div></div>');
-                return ret.join('');
+                $td.html(ret.join(''));
             },
             onPostBody: function (rows, $table) {
                 const elements = $table.find('code');
                 elements.each(function (index, element) {
                     hljs.highlightElement(element);
                     hljs.lineNumbersBlock(element);
+                });
+                $('.grid').masonry({
+                    // options...
+                    itemSelector: '.grid-item',
+                    columnWidth: 80
                 });
             }
         });

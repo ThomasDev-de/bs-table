@@ -31,7 +31,7 @@
             cardView: false,
             showCustomView: false,
             customView: false,
-            customViewFormatter(rows) {
+            onCustomView(rows) {
             },
             url: null,
             data: null,
@@ -50,7 +50,7 @@
                 toggleOff: 'bi bi-toggle-off',
                 toggleOn: 'bi bi-toggle-on',
                 customViewOff: 'bi bi-columns-gap',
-                customViewOn: 'bi bi-list',
+                customViewOn: 'bi bi-table',
             },
             rowStyle(row, index, $tr) {
             },
@@ -256,10 +256,11 @@
             }).appendTo(wrapper);
 
             // Placeholder-Struktur erstellen (Inhalt des Overlays)
-            const $content = $(`
-<div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
-  <span class="visually-hidden">Loading...</span>
-</div>`).appendTo($overlay);
+            const $content = $(
+                '<div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">' +
+                '<span class="visually-hidden">Loading...</span>' +
+                '</div>'
+            ).appendTo($overlay);
 
             // Sanftes Einblenden mit animate
             $overlay.animate({opacity: 0.75}, 100); // Dauer: 300ms
@@ -1062,23 +1063,20 @@
                 gapClass = 'gap-2 py-2';
             }
 
-            const template = `
-            <div class="d-flex flex-column ${gapClass} ${bsTableClasses.topContainer}">
-                <div class="d-flex justify-content-end align-items-end">
-                    <div class="d-flex ${bsTableClasses.toolbar} me-auto">
-                    </div>
-                    <div class="d-flex ${bsTableClasses.search}">
-                    </div>
-                    <div class="btn-group ${bsTableClasses.buttons}">
-                    </div>
-                </div>
-                <div class="d-flex justify-content-between align-items-end ${flexClass}">
-                    <div class="${bsTableClasses.paginationDetails}"></div>
-                    <div class="${bsTableClasses.pagination} top"></div>
-                </div>
-            </div>`;
+            const template = '' +
+                '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.topContainer + '">' +
+                '<div class="d-flex justify-content-end align-items-end">' +
+                '<div class="d-flex ' + bsTableClasses.toolbar + ' me-auto"></div>' +
+                '<div class="d-flex ' + bsTableClasses.search + '"></div>' +
+                '<div class="btn-group ' + bsTableClasses.buttons + '"></div>' +
+                '</div>' +
+                '<div class="d-flex justify-content-between align-items-end ' + flexClass + '">' +
+                '<div class="' + bsTableClasses.paginationDetails + '"></div>' +
+                '<div class="' + bsTableClasses.pagination + ' top"></div>' +
+                '</div>' +
+                '</div>';
 
-            // Top Container bestehend aus 1-n Zeilen
+// Top Container bestehend aus 1-n Zeilen
             const $tableTopContainer = $(template).prependTo($wrapper);
             const $toolbarContainer = $tableTopContainer.find('.' + bsTableClasses.toolbar);
             const $searchWrapper = $tableTopContainer.find('.' + bsTableClasses.search);
@@ -1094,12 +1092,14 @@
             // Falls die Suche aktiviert ist, füge ein Input-Feld und Logik hinzu
             if (settings.search === true) {
                 const placeholder = $.bsTable.utils.executeFunction(settings.formatSearch)
-                const $searchInputGroup = $(`
-    <div class="input-group">
-        <span class="input-group-text"><i class="${settings.icons.search}"></i></span>
-        <input type="search" class="form-control ${bsTableClasses.searchInput}" placeholder="${placeholder}">
-    </div>
-`);
+                const $searchInputGroup = $(
+                    '<div class="input-group">' +
+                    '<span class="input-group-text">' +
+                    '<i class="' + settings.icons.search + '"></i>' +
+                    '</span>' +
+                    '<input type="search" class="form-control ' + bsTableClasses.searchInput + '" placeholder="' + placeholder + '">' +
+                    '</div>'
+                );
                 $searchInputGroup.appendTo($searchWrapper);
             }
 
@@ -1120,13 +1120,13 @@
                 gapClass = 'gap-2 py-2';
             }
 
-            const template = `
-            <div class="d-flex flex-column ${gapClass} ${bsTableClasses.bottomContainer}">
-                <div class="d-flex justify-content-between align-items-start ${flexClass}">
-                    <div class="${bsTableClasses.paginationDetails}"></div>
-                    <div class="${bsTableClasses.pagination} bottom"></div>
-                </div>
-            </div>`;
+            const template = '' +
+                '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.bottomContainer + '">' +
+                '<div class="d-flex justify-content-between align-items-start ' + flexClass + '">' +
+                '<div class="' + bsTableClasses.paginationDetails + '"></div>' +
+                '<div class="' + bsTableClasses.pagination + ' bottom"></div>' +
+                '</div>' +
+                '</div>';
             $(template).appendTo($wrapper);
         },
         pagination($table, totalRows) {
@@ -1427,12 +1427,12 @@
                     html: settings.formatNoMatches(),
                 }).appendTo($tr);
             } else if (inToggleCustomView) {
-                const customContent = $.bsTable.utils.executeFunction(settings.customViewFormatter, rows);
                 const $tr = $('<tr></tr>').appendTo($tbody);
                 const $td = $('<td>', {
                     colspan: getCountColumns($table),
-                    html: customContent ?? 'customViewFormatter missing',
                 }).appendTo($tr);
+                triggerEvent($table, 'custom-view', rows, $td);
+                $.bsTable.utils.executeFunction(settings.onCustomView, rows, $td);
             } else {
                 let trIndex = 0;
                 rows.forEach(row => {
