@@ -10,6 +10,7 @@
             return this.defaults;
         },
         defaults: {
+            height: undefined,
             ajaxOptions: undefined,
             classes: 'table',
             toolbar: undefined,
@@ -98,7 +99,10 @@
                 return `...`
             },
             formatShowingRows(pageFrom, pageTo, totalRows) {
-                return `${pageFrom} - ${pageTo} / ${totalRows}`;
+                return `Showing ${pageFrom} to ${pageTo} of ${totalRows} rows`;
+            },
+            formatRecordsPerPage() {
+                return `records per page`;
             },
             debug: false
         },
@@ -299,10 +303,19 @@
             settings.columns = []; // Fallback, falls keine Spalten definiert sind
         }
 
+        const height = settings.height || parseInt($table.css('height'),10);
+        let setHeight = false;
+        if(height) {
+            settings.height = height;
+            setHeight = true
+        }
+
+
         const bsTable = {
             settings: settings,
             toggleView: settings.cardView === true,
             toggleCustomView: settings.customView === true,
+            setHeight: setHeight,
             response: []
         };
 
@@ -526,6 +539,7 @@
         setToggleCustomView($table, false);
         build.table($table);
     }
+
     function toggleCustomView($table) {
         setToggleCustomView($table, !getToggleCustomView($table));
         setToggleView($table, false);
@@ -810,11 +824,18 @@
             return new Promise((resolve, reject) => {
                 $table.empty();
                 const settings = getSettings($table);
+
                 const wrapperId = getUniqueId();
                 const $wrapper = $('<div>', {
                     class: bsTableClasses.wrapper + ' position-relative',
                     id: wrapperId,
                 }).insertAfter($table);
+                const $wrapperRespnsive = $('<div>', {
+                    class: 'table-responsive',
+                }).appendTo($wrapper);
+                if (isSetHeight($table)) {
+                    $wrapperRespnsive.css('max-height',settings.height);
+                }
                 const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
                 $wrapper.attr('data-child', isChild);
                 $table.attr('data-wrapper', wrapperId);
@@ -837,11 +858,13 @@
                     });
                 }
                 $table.addClass(tableClasses.join(' '));
-                $table.appendTo($wrapper);
+                $table.appendTo($wrapperRespnsive);
                 setCaption($table, settings.caption);
 
                 this.tableTopContainer($table);
                 this.tableBottomContainer($table);
+
+
 
                 $('<thead></thead>').appendTo($table);
                 $('<tbody></tbody>').appendTo($table);
@@ -867,7 +890,7 @@
             });
             // Dropdown für die Zeilenanzahl pro Seite
             const $dropdownToggle = $('<button>', {
-                'class': 'btn btn-secondary dropdown-toggle',
+                'class': 'btn btn-sm btn-secondary dropdown-toggle',
                 'type': 'button',
                 'id': 'dropdownPaginationPageSize',
                 'data-bs-toggle': 'dropdown',
@@ -1039,10 +1062,6 @@
             if (settings.showColumns === true) {
                 this.dropdownColumns($table).prependTo($btnContainer);
             }
-
-            if (!($.bsTable.utils.isValueEmpty(settings.pageList) || settings.pagination === false)) {
-                this.dropdownPageList($table).prependTo($btnContainer);
-            }
         },
         tableTopContainer($table) {
             const $wrapper = getWrapper($table);
@@ -1130,96 +1149,89 @@
             $(template).appendTo($wrapper);
         },
         pagination($table, totalRows) {
+            // Retrieve table-specific settings for pagination (e.g., page number, page size).
             const settings = getSettings($table);
 
-            // Berechne die Gesamtanzahl der Seiten
+            // Compute the total number of pages based on the total number of rows and page size.
             const totalPages = Math.ceil(totalRows / settings.pageSize);
+
+            // Determine the current page number (default to 1 if not defined).
             const currentPage = settings.pageNumber || 1;
 
-            const $paginationWrapper = $('<nav></nav>', {'data-role': 'tablePagination'});
+            // Create a wrapper for the pagination navigation element (using a 'nav' element).
+            const $paginationWrapper = $('<nav>', { 'data-role': 'tablePagination' });
 
-            const $paginationList = $('<ul></ul>', {
-                class: 'pagination justify-content-center m-0'
+            // Create an unordered list for pagination links and append it to the wrapper.
+            const $paginationList = $('<ul>', {
+                class: 'pagination justify-content-center m-0' // Apply Bootstrap styles for centering and margin.
             }).appendTo($paginationWrapper);
 
+            /**
+             * Helper function to create a pagination item (e.g., page links, "previous", "next").
+             * @param {string|null} role - The role of the element (e.g., 'previous', 'next', or null for page numbers).
+             * @param {boolean} disabled - Determines whether the item is disabled.
+             * @param {boolean} active - Determines whether the item is the active page.
+             * @param {string|number} content - The content to display in the pagination link (e.g., a number or HTML).
+             */
+            const createPageItem = (role, disabled, active, content) => {
+                // Create a list item with appropriate Bootstrap classes and append it to the pagination list.
+                const $item = $('<li>', {
+                    'data-role': role, // Optional role (e.g., 'previous', 'next').
+                    class: `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}` // Apply classes for active/disabled.
+                }).appendTo($paginationList);
 
-            // "Previous"-Button
-            const $prevItem = $('<li></li>', {
-                'data-role': 'previous',
-                class: `page-item ${currentPage === 1 ? 'disabled' : ''}`
-            }).appendTo($paginationList);
+                // Create the anchor element (link) inside the list item with necessary attributes/events.
+                $('<a>', {
+                    class: 'page-link', // Apply Bootstrap class to style the link.
+                    href: '#', // Prevent actual navigation for the link.
+                    tabindex: disabled ? '-1' : '', // Disable focus on the link if it's marked as disabled.
+                    'aria-disabled': disabled ? 'true' : 'false', // Set ARIA attribute for accessibility.
+                    html: content // Set the content of the link (HTML or plain text).
+                }).appendTo($item);
+            };
 
-            $('<a></a>', {
-                class: 'page-link',
-                href: '#',
-                tabindex: currentPage === 1 ? '-1' : '',
-                'aria-disabled': currentPage === 1 ? 'true' : 'false',
-                html: `<i class="${settings.icons.paginationprev}"></i>`,
-            }).appendTo($prevItem).on('click', function (e) {
-                e.preventDefault();
-                if (currentPage > 1) {
-                    settings.pageNumber = currentPage - 1;
-                    setSettings($table, settings);
-                    refresh($table);
-                }
-            });
+            // Create the "Previous" button for pagination.
+            createPageItem(
+                'previous', // Role for the "previous" button.
+                currentPage === 1, // Disable if the current page is the first page.
+                false, // The "previous" button is never active.
+                `<i class="${settings.icons.paginationprev}"></i>` // Use an icon for the button content.
+            );
 
-            // Sichtbare Seiten (berechne die Seitennummern)
+            // Calculate which page numbers to display as visible links.
             const visiblePages = $.bsTable.utils.calculateVisiblePagesOnNavigation(totalPages, currentPage);
 
+            // Iterate through the calculated visible pages and create page items for each.
             visiblePages.forEach(page => {
                 if (page === "...") {
-                    $('<li></li>', {
-                        class: 'page-item disabled'
-                    }).append(
-                        $('<a></a>', {
-                            class: 'page-link',
-                            text: '...'
-                        })
-                    ).appendTo($paginationList);
+                    // If the page is a placeholder (e.g., "..."), create a disabled page item.
+                    createPageItem(null, true, false, '...');
                 } else {
-                    const $pageItem = $('<li></li>', {
-                        class: `page-item ${page === currentPage ? 'active' : ''}`
-                    }).appendTo($paginationList);
-
-                    $('<a></a>', {
-                        class: 'page-link',
-                        href: '#',
-                        text: page
-                    }).appendTo($pageItem).on('click', function (e) {
-                        e.preventDefault();
-                        if (page !== currentPage) {
+                    // Otherwise, create a page item with the specific page number.
+                    createPageItem(
+                        null, // No specific role for individual page links.
+                        false, // Page links are never disabled unless specified.
+                        page === currentPage, // Mark as active if this is the current page.
+                        page, // Display the page number as the content.
+                        // Action: Change the page number to the selected page and refresh the table.
+                        () => {
                             settings.pageNumber = page;
                             setSettings($table, settings);
                             refresh($table);
                         }
-                    });
+                    );
                 }
             });
 
-            // "Next"-Button
-            const $nextItem = $('<li></li>', {
+            // Create the "Next" button for pagination.
+            createPageItem(
+                'next', // Role for the "next" button.
+                currentPage === totalPages, // Disable if the current page is the last page.
+                false, // The "next" button is never active.
+                `<i class="${settings.icons.paginationNext}"></i>` // Use an icon for the button content.
+            );
 
-                class: `page-item ${currentPage === totalPages ? 'disabled' : ''}`
-            }).appendTo($paginationList);
-
-            $('<a></a>', {
-                'data-role': 'next',
-                class: 'page-link',
-                href: '#',
-                tabindex: currentPage === totalPages ? '-1' : '',
-                'aria-disabled': currentPage === totalPages ? 'true' : 'false',
-                html: `<i class="${settings.icons.paginationNext}"></i>`,
-            }).appendTo($nextItem).on('click', function (e) {
-                e.preventDefault();
-                if (currentPage < totalPages) {
-                    settings.pageNumber = currentPage + 1;
-                    setSettings($table, settings);
-                    refresh($table);
-                }
-            });
-
-
+            // Return the completed pagination wrapper to be inserted into the DOM.
             return $paginationWrapper;
         },
         paginationDetails($table, totalRows) {
@@ -1236,17 +1248,29 @@
 
             // Textanzeige: "Showing x to y of total rows"
             const text = $.bsTable.utils.executeFunction(settings.formatShowingRows, startRow, endRow, totalRows);
-            const $paginationText = $('<div>')
-                .html(`<div class="">${text}</div>`);
+            const dropdown = build.dropdownPageList($table);
+            const $paginationText = $('<div>', {
+                class: 'd-flex align-items-center',
+                html: `<div class="me-3">${text}</div>`,
+            })
+            dropdown.appendTo($paginationText);
+            const recors = $.bsTable.utils.executeFunction(settings.formatRecordsPerPage, pageSize);
+            $('<div>', {class: 'ms-2', html: recors}).appendTo($paginationText);
 
             const $allDestinations = wrapper.find('.' + bsTableClasses.paginationDetails);
 
             if ($allDestinations.length > 0) {
+                const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
+                const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
                 const $first = $allDestinations.first().empty();
                 const $last = $allDestinations.last().empty();
 
-                $paginationText.clone().appendTo($first);
-                $paginationText.clone().appendTo($last);
+                if (showOnTop) {
+                    $paginationText.clone().appendTo($first);
+                }
+                if (showOnBottom) {
+                    $paginationText.clone().appendTo($last);
+                }
             }
         },
         table($table) {
@@ -1280,7 +1304,7 @@
             build.buttons($table);
             const $topPaginationContainer = getPaginationContainer($table, true).empty();
             const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
-            build.paginationDetails($table, totalRows);
+
             const $tableTopContainer = getTableTopContainer($table);
             const $btnContainer = $tableTopContainer.find(`.${bsTableClasses.buttons}:first`);
 
@@ -1293,7 +1317,8 @@
                 $btnContainer.removeClass('ms-2');
             }
 
-            if (settings.pagination && pageSize !== 0) {
+            if (settings.pagination) {
+                this.paginationDetails($table, totalRows);
                 const $wrapper = getWrapper($table);
                 const $paginationHtml = this.pagination($table, totalRows);
                 const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
@@ -1321,6 +1346,9 @@
                         headerClasses.push(className);
                     }
                 });
+            }
+            if(isSetHeight($table)) {
+                headerClasses.push('sticky-top');
             }
 
             const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
@@ -1565,6 +1593,10 @@
                 })
             }
 
+            if(isSetHeight($table)) {
+                footerClasses.push('sticky-bottom');
+            }
+
             const $tfoot = $table.children('tfoot').empty().addClass(footerClasses.join(' '));
 
             if (showFooter) {
@@ -1773,6 +1805,9 @@
     }
 
 
+    function isSetHeight($table) {
+        return $table.data('bsTable').setHeight;
+    }
     function getSettings($table) {
         return $table.data('bsTable').settings;
     }
@@ -1848,16 +1883,6 @@
         }
     }
 
-    function getPaginationDetailsContainer($table) {
-        const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
-        // Finde den Pagination-Container und stelle sicher, dass er direkt zum aktuellen Wrapper gehört
-        const $pagination = $wrapper.find(`.${bsTableClasses.paginationDetails}`).filter(function () {
-            // Überprüfe, ob der Pagination-Container direkt dem aktuellen Wrapper zugeordnet ist
-            return getClosestWrapper($(this))[0] === $wrapper[0];
-        }).first(); // Hole nur den ersten passenden Pagination-Container
-
-        return $pagination.length > 0 ? $pagination : $(); // Fallback: Leeres jQuery-Objekt, wenn keiner gefunden
-    }
 
     function getSearchInput($table) {
         const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
@@ -2275,20 +2300,42 @@
                 }
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.pagination} .page-link`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                // Verhindere unerwünschte Browser- und DOM-Ereignisse
+                e.preventDefault();             // Standardaktion verhindern
+                e.stopPropagation();            // Ereignis weiter oben im DOM verhindern
+                e.stopImmediatePropagation();   // Andere Handler für dieses Ereignis stoppen
+
                 const $pageLink = $(e.currentTarget);
+
+                // Safety: Überprüfen, ob das geklickte Element existiert
                 if (!$pageLink.length) return;
-                const wrapper = getClosestWrapper($pageLink);
+
+                // Übergeordneten Container ermitteln (mit "table-responsive")
+                const wrapper = getClosestWrapper($pageLink); // Funktion vorhanden
+                const tableResponsive = wrapper.closest('.table-responsive');
+
+                // Scroll-Zustand auf `0` setzen (nach oben scrollen)
+                if (tableResponsive.length) {
+                    tableResponsive.scrollTop(0); // Scroll zurück nach oben
+                }
+
+                // Tabelle und Einstellungen verarbeiten
                 const table = getTableByWrapperId(wrapper.attr('id'));
                 const settings = getSettings(table);
                 const response = getResponse(table);
+
+                // Berechnung der Seitenanzahl basierend auf der Antwort
                 const totalPages = Math.ceil(response.total / settings.pageSize);
+
+                // Verhindere Aktion, wenn der Link deaktiviert oder bereits aktiv ist
                 if ($pageLink.parent().hasClass('disabled') || $pageLink.parent().hasClass('active')) {
                     return;
                 }
+
+                // Aktion vom Link holen
                 const action = $pageLink.attr('data-role') || $pageLink.html().toLowerCase().trim();
+
+                // Navigation Aktionen ausführen (vorherige, nächste oder spezifische Seite)
                 if (action.includes('previous') || action.includes('left')) {
                     settings.pageNumber = Math.max(1, settings.pageNumber - 1);
                 } else if (action.includes('next') || action.includes('right')) {
@@ -2299,6 +2346,8 @@
                         settings.pageNumber = pageNum;
                     }
                 }
+
+                // Speichere die neuen Einstellungen und lade/aktualisiere den Tabelleninhalt
                 setSettings(table, settings);
                 refresh(table);
             });

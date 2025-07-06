@@ -112,7 +112,11 @@
             in the
             `bsTable` lifecycle:</p>
     </div>
-    <table id="table_table_options"></table>
+<!--    <div id="table-container" class="table-responsive">-->
+
+
+    <table id="table_table_options" style="height: 300px"></table>
+<!--    </div>-->
     <table id="table_column_options"></table>
     <table id="table_table_events" data-toolbar="#table_events_toolbar"></table>
 </div>
@@ -165,21 +169,19 @@
 
         $.bsTable.setDefaults({
             classes: {
-                table: 'table align-top table-bordered',
+                table: 'table align-top table-bordered mb-0',
+                thead: 'sticky-top',
                 tbody: 'table-group-divider',
+                tfoot: 'sticky-bottom',
                 active: 'table-active'
             },
+            height: 800,
             search: true,
-            showColumns: true,
-            showRefresh: true,
-            pagination: true,
-            sidePagination: 'client',
-            paginationVAlign: 'both',
-            pageSize:10,
-            showToggle: true,
             showCustomView: true,
-            cardView: true,
-            customView: true,
+            showFooter: false,
+            paginationVAlign: 'both',
+            showToggle: true,
+            pagination: true,
             onCustomView(rows, $td) {
                 const ret = ['<div class=""><div class="grid mx-auto">'];
                 let index = 0;
@@ -187,7 +189,7 @@
                     const examples = renderCodeTabs(row.examples, index);
                     ret.push(`<div class="grid-item">
                         <div class="card card-body">
-                            <h5 class="card-title">${row.option}</h5>
+                            <h5>${row.option}</h5>
                             <p class="card-text">${formatMarkdownToHtml(row.description)}</p>
                             ${examples}
                         </div>
@@ -204,7 +206,6 @@
                     hljs.lineNumbersBlock(element);
                 });
                 $('.grid').masonry({
-                    // options...
                     itemSelector: '.grid-item',
                     columnWidth: 80
                 });
@@ -229,7 +230,7 @@
                         field: 'option',
                         title: 'Option',
                         sortable: true,
-                        formatter:formatFirstRow,
+                        formatter: formatFirstRow,
                     },
                     {
                         title: 'Description',
@@ -327,10 +328,10 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 toolbar: '#toolbar_table',
                 sortName: 'option',
                 data: data,
-                caption: {
-                    text: "Table Options",
-                    onTop: true,
-                },
+                // caption: {
+                //     text: "Table Options",
+                //     onTop: true,
+                // },
                 columns: [
                     {
                         class: 'text-nowrap pe-3',
@@ -338,8 +339,8 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                         title: 'Option',
                         sortable: true,
                         // align: 'end',
-                        valign: 'middle',
-                        formatter:formatFirstRow,
+                        // valign: 'middle',
+                        formatter: formatFirstRow,
                     },
                     {
                         title: 'Description',
@@ -451,6 +452,42 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
 
 
         hljs.highlightElement($('.hl-me').get(0));
+
+
+
+        function setupStickyHeader() {
+            const tableContainer = document.getElementById('table-container');
+            const thead = tableContainer.querySelector('thead');
+
+            // Dynamische Höhe für den Container berechnen
+            const availableHeight = window.innerHeight - tableContainer.getBoundingClientRect().top - 20; // 20px als Offset/Abstand
+            tableContainer.style.height = availableHeight + 'px';
+            tableContainer.style.overflow = 'auto'; // Scroll-Bar aktivieren
+
+            // Ausgangsstil für Sticky-Header setzen
+            thead.style.position = 'sticky';
+            thead.style.top = '0';
+            thead.style.zIndex = '10';
+            thead.style.backgroundColor = '#fff';
+
+            // Optional: Scroll-Verhalten beachten
+            tableContainer.addEventListener('scroll', () => {
+                const scrollTop = tableContainer.scrollTop;
+
+                // Beispielanpassungen bei Scrollen
+                if (scrollTop > 0) {
+                    thead.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)'; // Schatten hinzufügen
+                } else {
+                    thead.style.boxShadow = 'none'; // Schatten entfernen
+                }
+            });
+        }
+
+// Funktion beim Laden der Seite ausführen
+        window.addEventListener('DOMContentLoaded', setupStickyHeader);
+
+// Okay: Größe anpassen, wenn Fenstergröße sich ändert
+        window.addEventListener('resize', setupStickyHeader);
 
     })
 </script>
