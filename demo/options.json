@@ -342,7 +342,7 @@
   },
   {
     "option": "columns",
-    "type": "Array<Object>",
+    "type": "Array",
     "default": "[]",
     "description": "Defines the structure and behavior of the table's columns. Each element in the array represents a column and can include\nvarious configuration options. See [column options](#table_column_options) below.",
     "examples": [

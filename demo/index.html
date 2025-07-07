@@ -115,7 +115,7 @@
 <!--    <div id="table-container" class="table-responsive">-->
 
 
-    <table id="table_table_options" style="height: 300px"></table>
+    <table id="table_table_options"></table>
 <!--    </div>-->
     <table id="table_column_options"></table>
     <table id="table_table_events" data-toolbar="#table_events_toolbar"></table>
@@ -175,7 +175,7 @@
                 tfoot: 'sticky-bottom',
                 active: 'table-active'
             },
-            height: 800,
+            // height: 800,
             search: true,
             showCustomView: true,
             showFooter: false,
@@ -359,7 +359,9 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 ]
             });
 
-            console.log(tableTableOptions.bsTable('getSettings'));
+            setTimeout(function(){
+                tableTableOptions.bsTable('refreshOptions', {height: 300});
+            }, 5000)
         });
 
         function formatFirstRow(value, row, index, $td) {

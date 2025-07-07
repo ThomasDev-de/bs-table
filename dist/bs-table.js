@@ -216,6 +216,7 @@
 
     const bsTableClasses = {
         wrapper: 'bs-table', // Overall wrapper class
+        wrapperResponsive: 'bs-table-responsive', // Overall wrapper class
         overlay: 'bs-table-overlay', // For the visual loading overlay
         topContainer: 'bs-table-top-container', // Der Kontainer über der Tabelle
         bottomContainer: 'bs-table-bottom-container', // Der Kontainer unter der Tabelle
@@ -233,8 +234,8 @@
     const methods = {
         refreshOptions($table, settings) {
             const setup = getSettings($table);
-            $.extend(true, {}, setup, settings || {});
-            setSettings($table, setup);
+            const newSettings = $.extend(true, {}, setup, settings || {});
+            setSettings($table, newSettings);
             refresh($table);
         },
         hideRowByIndex($table, rowIndex) {
@@ -304,18 +305,16 @@
         }
 
         const height = settings.height || parseInt($table.css('height'),10);
-        let setHeight = false;
-        if(height) {
+        if(isNaN(height) && height !== 0) {
             settings.height = height;
-            setHeight = true
+        } else {
+            settings.height = undefined;
         }
-
 
         const bsTable = {
             settings: settings,
             toggleView: settings.cardView === true,
             toggleCustomView: settings.customView === true,
-            setHeight: setHeight,
             response: []
         };
 
@@ -831,11 +830,9 @@
                     id: wrapperId,
                 }).insertAfter($table);
                 const $wrapperRespnsive = $('<div>', {
-                    class: 'table-responsive',
+                    class: 'table-responsive ' + bsTableClasses.wrapperResponsive,
                 }).appendTo($wrapper);
-                if (isSetHeight($table)) {
-                    $wrapperRespnsive.css('max-height',settings.height);
-                }
+
                 const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
                 $wrapper.attr('data-child', isChild);
                 $table.attr('data-wrapper', wrapperId);
@@ -1278,6 +1275,9 @@
             if (settings.debug) {
                 console.groupCollapsed("Render Table");
             }
+            if (typeof settings.height !== undefined) {
+                getResponsiveWrapper($table).css('max-height',settings.height);
+            }
             const wrapper = getClosestWrapper($table);
             const response = getResponse($table);
             if (settings.debug) {
@@ -1347,7 +1347,7 @@
                     }
                 });
             }
-            if(isSetHeight($table)) {
+            if(typeof settings.height !== undefined) {
                 headerClasses.push('sticky-top');
             }
 
@@ -1487,6 +1487,15 @@
                 })
             }
 
+            const tableResponsive = getResponsiveWrapper($table);
+
+            if (tableResponsive.length) {
+                // tableResponsive.stop(true).animate({
+                //     scrollTop: 0
+                // },400);
+                tableResponsive.scrollTop(0);
+            }
+
             // Nur die Daten der aktuellen Seite an onPostBody übergeben
             triggerEvent($table, 'post-body', rows, $table);
             $.bsTable.utils.executeFunction(settings.onPostBody, rows, $table);
@@ -1593,7 +1602,7 @@
                 })
             }
 
-            if(isSetHeight($table)) {
+            if(typeof settings.height !== undefined) {
                 footerClasses.push('sticky-bottom');
             }
 
@@ -1804,10 +1813,6 @@
         return columnCount;
     }
 
-
-    function isSetHeight($table) {
-        return $table.data('bsTable').setHeight;
-    }
     function getSettings($table) {
         return $table.data('bsTable').settings;
     }
@@ -1859,6 +1864,9 @@
 
     function getWrapper($table) {
         return $table.closest(`.${bsTableClasses.wrapper}`);
+    }
+    function getResponsiveWrapper($table) {
+        return $table.closest(`.${bsTableClasses.wrapperResponsive}`);
     }
 
     function getClosestWrapper($element) {
@@ -2310,14 +2318,8 @@
                 // Safety: Überprüfen, ob das geklickte Element existiert
                 if (!$pageLink.length) return;
 
-                // Übergeordneten Container ermitteln (mit "table-responsive")
                 const wrapper = getClosestWrapper($pageLink); // Funktion vorhanden
-                const tableResponsive = wrapper.closest('.table-responsive');
 
-                // Scroll-Zustand auf `0` setzen (nach oben scrollen)
-                if (tableResponsive.length) {
-                    tableResponsive.scrollTop(0); // Scroll zurück nach oben
-                }
 
                 // Tabelle und Einstellungen verarbeiten
                 const table = getTableByWrapperId(wrapper.attr('id'));
