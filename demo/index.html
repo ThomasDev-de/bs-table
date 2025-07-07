@@ -112,11 +112,11 @@
             in the
             `bsTable` lifecycle:</p>
     </div>
-<!--    <div id="table-container" class="table-responsive">-->
+    <!--    <div id="table-container" class="table-responsive">-->
 
 
     <table id="table_table_options"></table>
-<!--    </div>-->
+    <!--    </div>-->
     <table id="table_column_options"></table>
     <table id="table_table_events" data-toolbar="#table_events_toolbar"></table>
 </div>
@@ -169,7 +169,7 @@
 
         $.bsTable.setDefaults({
             classes: {
-                table: 'table align-top table-bordered mb-0',
+                table: 'align-top table-bordered mb-0',
                 thead: 'sticky-top',
                 tbody: 'table-group-divider',
                 tfoot: 'sticky-bottom',
@@ -177,19 +177,25 @@
             },
             // height: 800,
             search: true,
+            showRefresh: true,
+            showColumns: true,
             showCustomView: true,
             showFooter: false,
             paginationVAlign: 'both',
             showToggle: true,
             pagination: true,
-            onCustomView(rows, $td) {
+            onCustomView(rows, columns, $td) {
                 const ret = ['<div class=""><div class="grid mx-auto">'];
                 let index = 0;
+                const columnOption = columns.find(column => column.field === 'option');
+                const columnDescription = columns.find(column => column.field === 'description');
+                const columnExamples = columns.find(column => column.field === 'examples');
                 rows.map(row => {
+                    const option = columnOption.visible ? '<h5>${row.option}</h5>' : '';
                     const examples = renderCodeTabs(row.examples, index);
                     ret.push(`<div class="grid-item">
                         <div class="card card-body">
-                            <h5>${row.option}</h5>
+                            ${option}
                             <p class="card-text">${formatMarkdownToHtml(row.description)}</p>
                             ${examples}
                         </div>
@@ -328,18 +334,16 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 toolbar: '#toolbar_table',
                 sortName: 'option',
                 data: data,
-                // caption: {
-                //     text: "Table Options",
-                //     onTop: true,
-                // },
+                idField: 'option',
                 columns: [
+                    {
+                        checkbox: true,
+                    },
                     {
                         class: 'text-nowrap pe-3',
                         field: 'option',
                         title: 'Option',
                         sortable: true,
-                        // align: 'end',
-                        // valign: 'middle',
                         formatter: formatFirstRow,
                     },
                     {
@@ -359,13 +363,13 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 ]
             });
 
-            setTimeout(function(){
-                tableTableOptions.bsTable('refreshOptions', {height: 300});
+            setTimeout(function () {
+                console.log('getSelections', tableTableOptions.bsTable('getSelections'));
             }, 5000)
         });
 
         function formatFirstRow(value, row, index, $td) {
-            $td.addClass('table-active');
+            // $td.addClass('table-active');
             const ret = [
                 '<div class="d-flex flex-column">',
                 '<h4 class="text-warning">' + value + '</h4>',
@@ -454,7 +458,6 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
 
 
         hljs.highlightElement($('.hl-me').get(0));
-
 
 
         function setupStickyHeader() {
