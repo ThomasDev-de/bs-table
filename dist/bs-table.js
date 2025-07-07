@@ -30,6 +30,7 @@
             showCustomView: false,
             customView: false,
             onCustomView(rows, columns, $td) {
+                console.log(rows, columns, $td);
             },
             url: null,
             data: null,
@@ -51,6 +52,7 @@
                 customViewOn: 'bi bi-table',
             },
             rowStyle(row, index, $tr) {
+                console.log(row, index, $tr);
             },
             queryParams(params) {
                 return params;
@@ -60,6 +62,7 @@
             },
             caption: null,
             onAll(eventName, ...args) {
+                console.log(eventName, args);
             },
             onLoadSuccess() {
             },
@@ -122,16 +125,26 @@
 
                 return data.sort((a, b) => {
                     // NULL-Werte nach hinten sortieren
-                    if (a[field] == null && b[field] == null) return 0; // Beide NULL
-                    if (a[field] == null) return 1 * direction; // `a` ist NULL → `b` vorher
-                    if (b[field] == null) return -1 * direction; // `b` ist NULL → `a` vorher
+                    if (a[field] == null && b[field] == null) {
+                        return 0;
+                    } // Beide NULL
+                    if (a[field] == null) {
+                        return 1 * direction;
+                    } // `a` ist NULL → `b` vorher
+                    if (b[field] == null) {
+                        return -1 * direction;
+                    } // `b` ist NULL → `a` vorher
 
                     // Zahlen- oder Stringvergleich
                     const aValue = typeof a[field] === "number" ? a[field] : a[field].toString().toLowerCase();
                     const bValue = typeof b[field] === "number" ? b[field] : b[field].toString().toLowerCase();
 
-                    if (aValue > bValue) return 1 * direction;
-                    if (aValue < bValue) return -1 * direction;
+                    if (aValue > bValue) {
+                        return 1 * direction;
+                    }
+                    if (aValue < bValue) {
+                        return -1 * direction;
+                    }
 
                     // Alles gleich: Reihenfolge beibehalten
                     return 0;
@@ -304,7 +317,9 @@
             $overlay.animate({opacity: 0.75}, 100); // Dauer: 300ms
         }, hideLoading($table) {
             const $overlay = getOverlay($table);
-            if (!$overlay.length) return; // Abbruch, falls kein Overlay vorhanden ist
+            if (!$overlay.length) {
+                return;
+            } // Abbruch, falls kein Overlay vorhanden ist
 
             // Vorherige Animation stoppen und sanftes Ausblenden starten
             $overlay.stop().animate({opacity: 0}, 100, function () {
@@ -372,7 +387,7 @@
         // checkForCheckItems($table);
 
         // Create Structure Elements of the Table
-        build.structure($table);
+        build.structure($table).then();
 
         // Update table (e.g. load or render data)
         refresh($table);
@@ -581,7 +596,9 @@
 
         // Opt-Parameter verarbeiten
         if (options && typeof options === 'object') {
-            if (options.silent) silent = options.silent;
+            if (options.silent) {
+                silent = options.silent;
+            }
             if (options.pageNumber) {
                 pageNumber = Math.max(1, options.pageNumber);
                 update = true;
@@ -908,44 +925,38 @@
 
     const build = {
         structure($table) {
-            return new Promise((resolve, reject) => {
-                $table.empty();
-                const settings = getSettings($table);
+            $table.empty();
+            const settings = getSettings($table);
 
-                const wrapperId = getUniqueId();
-                const $wrapper = $('<div>', {
-                    class: bsTableClasses.wrapper + ' position-relative', id: wrapperId,
-                }).insertAfter($table);
-                const $wrapperRespnsive = $('<div>', {
-                    class: 'table-responsive ' + bsTableClasses.wrapperResponsive,
-                }).appendTo($wrapper);
+            const wrapperId = getUniqueId();
+            const $wrapper = $('<div>', {
+                class: bsTableClasses.wrapper + ' position-relative', id: wrapperId,
+            }).insertAfter($table);
+            const $wrapperRespnsive = $('<div>', {
+                class: 'table-responsive ' + bsTableClasses.wrapperResponsive,
+            }).appendTo($wrapper);
 
-                const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
-                $wrapper.attr('data-child', isChild);
-                $table.attr('data-wrapper', wrapperId);
+            const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
+            $wrapper.attr('data-child', isChild);
+            $table.attr('data-wrapper', wrapperId);
 
-                $table.appendTo($wrapperRespnsive);
-                setCaption($table, settings.caption);
+            $table.appendTo($wrapperRespnsive);
+            setCaption($table, settings.caption);
 
-                this.tableTopContainer($table);
-                this.tableBottomContainer($table);
+            this.tableTopContainer($table);
+            this.tableBottomContainer($table);
 
-
-                $('<thead></thead>').appendTo($table);
-                $('<tbody></tbody>').appendTo($table);
-                $('<tfoot></tfoot>').appendTo($table);
-                resolve();
-            });
-
-        }, dropdownPageList($table) {
+            $('<thead></thead>').appendTo($table);
+            $('<tbody></tbody>').appendTo($table);
+            $('<tfoot></tfoot>').appendTo($table);
+        },
+        dropdownPageList($table) {
             const settings = getSettings($table);
             const response = getResponse($table);
             const totalRows = response.total || (response.rows ? response.rows.length : 0);
             // Berechnung der Anzeige-Daten (Start- und Endzeilen)
             const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
             const currentPage = settings.pageNumber || 1;
-            const startRow = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-            const endRow = Math.min(totalRows, currentPage * pageSize);
             const smallBtn = $table.hasClass('table-sm') ? 'btn-sm' : '';
 
             // Haupt-Wrapper (d-flex für Flexbox)
@@ -1039,11 +1050,13 @@
 
             // Für jede Spalte eine Checkbox hinzufügen
 
-            settings.columns.forEach((column, index) => {
+            settings.columns.forEach((column) => {
                 const isVisible = column.visible !== false;
 
                 // Überspringen von Spalten mit `checkbox` oder `radio`
-                if (column.checkbox || column.radio) return;
+                if (column.checkbox || column.radio) {
+                    return;
+                }
                 const uniqueId = getUniqueId('bs_table_column_visibility_');
                 // Erstelle ein Menü-Item mit Checkbox
                 const $menuItem = $('<div>', {'class': 'dropdown-item px-3'}).append($('<div>', {'class': 'form-check d-flex align-items-center'}).append($('<input>', {
@@ -1091,7 +1104,7 @@
             const smallBtnClass = $table.hasClass('table-sm') ? 'btn-sm' : '';
 
             if (settings.showRefresh === true) {
-                const $refreshButton = $(`<button>`, {
+                $(`<button>`, {
                     class: `btn btn-secondary ${bsTableClasses.btnRefresh} ${smallBtnClass}`,
                     html: `<i class="${settings.icons.refresh}"></i>`,
                 }).appendTo($btnContainer);
@@ -1099,14 +1112,14 @@
 
             if (settings.showToggle === true) {
                 const toggleIcon = getToggleView($table) ? settings.icons.toggleOn : settings.icons.toggleOff;
-                const $toggleButton = $(`<button>`, {
+                $(`<button>`, {
                     class: `btn btn-secondary ${bsTableClasses.btnToggle} ${smallBtnClass}`,
                     html: `<i class="${toggleIcon}"></i>`,
                 }).prependTo($btnContainer);
             }
             if (settings.showCustomView === true) {
                 const toggleIcon = getToggleCustomView($table) ? settings.icons.customViewOn : settings.icons.customViewOff;
-                const $toggleButton = $(`<button>`, {
+                $(`<button>`, {
                     class: `btn btn-secondary ${bsTableClasses.btnCustomView} ${smallBtnClass}`,
                     html: `<i class="${toggleIcon}"></i>`,
                 }).prependTo($btnContainer);
@@ -1131,7 +1144,7 @@
 
             const template = '' + '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.topContainer + '">' + '<div class="d-flex justify-content-end align-items-end">' + '<div class="d-flex ' + bsTableClasses.toolbar + ' me-auto"></div>' + '<div class="d-flex ' + bsTableClasses.search + '"></div>' + '<div class="btn-group ' + bsTableClasses.buttons + '"></div>' + '</div>' + '<div class="d-flex justify-content-between align-items-end ' + flexClass + '">' + '<div class="' + bsTableClasses.paginationDetails + '"></div>' + '<div class="' + bsTableClasses.pagination + ' top"></div>' + '</div>' + '</div>';
 
-// Top Container bestehend aus 1-n Zeilen
+            // Top Container bestehend aus 1-n Zeilen
             const $tableTopContainer = $(template).prependTo($wrapper);
             const $toolbarContainer = $tableTopContainer.find('.' + bsTableClasses.toolbar);
             const $searchWrapper = $tableTopContainer.find('.' + bsTableClasses.search);
@@ -1237,13 +1250,8 @@
                     createPageItem(null, // No specific role for individual page links.
                         false, // Page links are never disabled unless specified.
                         page === currentPage, // Mark as active if this is the current page.
-                        page, // Display the page number as the content.
-                        // Action: Change the page number to the selected page and refresh the table.
-                        () => {
-                            settings.pageNumber = page;
-                            setSettings($table, settings);
-                            refresh($table);
-                        });
+                        page // Display the page number as the content.
+                    );
                 }
             });
 
@@ -1379,7 +1387,6 @@
 
             if (settings.pagination) {
                 this.paginationDetails($table, totalRows);
-                const $wrapper = getWrapper($table);
                 const $paginationHtml = this.pagination($table, totalRows);
                 const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
                 const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
@@ -1421,7 +1428,9 @@
                 }
                 let colIndex = 0;
                 columns.forEach(column => {
-                    if (column.checkbox === true || column.radio === true) return;
+                    if (column.checkbox === true || column.radio === true) {
+                        return;
+                    }
                     this.theadTr(column, $tr, colIndex);
                     colIndex++;
                 });
@@ -1462,7 +1471,9 @@
             }
 
             // Apply CSS and attributes
-            if (column.width) $th.css('width', column.width);
+            if (column.width) {
+                $th.css('width', column.width);
+            }
 
             // Build class list
             const alignmentClasses = {
@@ -1476,7 +1487,9 @@
 
             const classList = [column.halign && alignmentClasses[column.halign] ? alignmentClasses[column.halign] : '', column.visible === false ? 'd-none' : ''].filter(Boolean);
 
-            if (classList.length) $th.addClass(classList.join(' '));
+            if (classList.length) {
+                $th.addClass(classList.join(' '));
+            }
         }, tbody($table, rows) {
             const settings = getSettings($table);
             triggerEvent($table, 'pre-body', rows, $table);
@@ -1502,7 +1515,7 @@
 
             if (!hasResponse) {
                 const $tr = $('<tr></tr>').appendTo($tbody);
-                const $td = $('<td>', {
+                $('<td>', {
                     colspan: getCountColumns($table), class: 'text-center', html: settings.formatNoMatches(),
                 }).appendTo($tr);
             } else if (inToggleCustomView) {
@@ -1529,7 +1542,9 @@
                         }
                         let colIndex = 0;
                         settings.columns.forEach(column => {
-                            if (column.checkbox === true || column.radio === true) return;
+                            if (column.checkbox === true || column.radio === true) {
+                                return;
+                            }
                             this.tbodyTd(column, row, $tr, colIndex, inToggleView);
                             colIndex++;
                         });
@@ -1667,7 +1682,9 @@
 
                 let colIndex = 0;
                 columns.forEach(column => {
-                    if (column.checkbox === true || column.radio === true) return;
+                    if (column.checkbox === true || column.radio === true) {
+                        return;
+                    }
                     this.tfootTr(column, $tr, colIndex, data);
                     colIndex++;
                 })
@@ -1678,7 +1695,6 @@
             }
         }, tfootTr(column, $tr, colIndex, data) {
             const $table = $tr.closest('table');
-            const settings = getSettings($table);
 
             // Formatierer-Wert prüfen und zuweisen
             const formatterValue = $.bsTable.utils.executeFunction(column.footerFormatter, data);
@@ -2104,7 +2120,6 @@
         const $tr = $td.closest('tr');
         const row = $tr.data('row');
         const value = row[column.field] ?? null;
-        const trIndex = $td.data('trIndex');
         triggerEvent($table, 'click-row', row, $tr, column.field)
         $.bsTable.utils.executeFunction(settings.onClickRow, row, $tr, column.field);
         triggerEvent($table, 'click-cell', column.field, value, row, $td);
@@ -2164,13 +2179,14 @@
     }
 
     function handleCheckboxChange($checkbox) {
-        if (!$checkbox.length) return;
+        if (!$checkbox.length) {
+            return;
+        }
         const wrapper = getClosestWrapper($checkbox);
         const table = getTableByWrapperId(wrapper.attr('id'));
         const $tr = $checkbox.closest('tr');
         const isChecked = $checkbox.is(':checked');
         const settings = getSettings(table);
-        const idField = settings.idField;
         const row = $tr.data('row');
         if (isChecked) {
             addSelected(table, row);
@@ -2197,12 +2213,13 @@
     }
 
     function handleRadiosByRadioChange($checkbox) {
-        if (!$checkbox.length) return;
+        if (!$checkbox.length) {
+            return;
+        }
         const wrapper = getClosestWrapper($checkbox);
         const table = getTableByWrapperId(wrapper.attr('id'));
         const $tr = $checkbox.closest('tr');
         const row = $tr.data('row');
-        const value = $checkbox.attr('value');
         const settings = getSettings(table);
         const headerCheckbox = table.children('thead').find(`.${bsTableClasses.checkInputHeader}`);
         setSelected(table, []);
@@ -2230,11 +2247,11 @@
     }
 
     function handleCheckOnOrNone($checkbox) {
-        if (!$checkbox.length) return;
+        if (!$checkbox.length) {
+            return;
+        }
         const wrapper = getClosestWrapper($checkbox);
         const table = getTableByWrapperId(wrapper.attr('id'));
-
-        const $tr = $checkbox.closest('tr');
         const settings = getSettings(table);
         const isChecked = $checkbox.prop('checked');
         let activeClassName = 'table-active'
@@ -2279,9 +2296,10 @@
     }
 
     function handleUncheckRadios($checkbox) {
-        if (!$checkbox.length) return;
+        if (!$checkbox.length) {
+            return;
+        }
         const wrapper = getClosestWrapper($checkbox);
-        const $tr = $checkbox.closest('tr');
         const table = getTableByWrapperId(wrapper.attr('id'));
         const settings = getSettings(table);
         let activeClassName = 'table-active'
@@ -2364,7 +2382,9 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $a = $(e.currentTarget);
-                if (!$a.length) return;
+                if (!$a.length) {
+                    return;
+                }
                 const wrapper = getClosestWrapper($a);
                 const table = getTableByWrapperId(wrapper.attr('id'));
                 handleClickOnPaginationSize(table, $a);
@@ -2374,7 +2394,9 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $btn = $(e.currentTarget);
-                if (!$btn.length) return;
+                if (!$btn.length) {
+                    return;
+                }
                 const $wrapper = getClosestWrapper($btn);
                 const table = getTableByWrapperId($wrapper.attr('id'));
                 refresh(table, null, true);
@@ -2384,7 +2406,9 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $btn = $(e.currentTarget);
-                if (!$btn.length) return;
+                if (!$btn.length) {
+                    return;
+                }
                 const $wrapper = getClosestWrapper($btn);
                 const table = getTableByWrapperId($wrapper.attr('id'));
                 toggleView(table);
@@ -2394,7 +2418,9 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $btn = $(e.currentTarget);
-                if (!$btn.length) return;
+                if (!$btn.length) {
+                    return;
+                }
                 const $wrapper = getClosestWrapper($btn);
                 const table = getTableByWrapperId($wrapper.attr('id'));
                 toggleCustomView(table);
@@ -2403,7 +2429,9 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $searchField = $(e.currentTarget);
-                if (!$searchField.length) return;
+                if (!$searchField.length) {
+                    return;
+                }
                 const wrapper = getClosestWrapper($searchField);
 
                 clearTimeout(searchTimeout);
@@ -2427,7 +2455,9 @@
                 const $pageLink = $(e.currentTarget);
 
                 // Safety: Überprüfen, ob das geklickte Element existiert
-                if (!$pageLink.length) return;
+                if (!$pageLink.length) {
+                    return;
+                }
 
                 const wrapper = getClosestWrapper($pageLink); // Funktion vorhanden
 
