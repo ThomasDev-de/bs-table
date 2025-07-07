@@ -249,6 +249,7 @@
             setToggleCustomView($table, customView);
             setToggleView($table, cardView);
             setSettings($table, newSettings);
+            // checkForCheckItems($table);
             refresh($table);
         }, hideRowByIndex($table, rowIndex) {
             $table.children('tbody').children(`tr[data-index="${rowIndex}"]:not(.d-none)`).addClass('d-none');
@@ -344,16 +345,6 @@
         // refresh the columns
         settings.columns = columns;
 
-        const isCheckbox = settings.columns.some(column => column.checkbox === true);
-        const isRadio = settings.columns.some(column => column.radio === true);
-
-        const showCheckItem =
-            settings.idField && // idField is set
-            settings.columns.length && // Columns are defined
-            (isCheckbox || isRadio) && // At least one column has checkbox or radio
-            settings.columns.some(column => column.field === settings.idField); // idField exists in the columns
-
-
         // handle table heigth
         const height = settings.height || $table.data('height') || parseInt($table.css('height'), 10);
         if (!isNaN(height) && height !== 0) {
@@ -366,8 +357,11 @@
             settings: settings,
             toggleView: settings.cardView === true,
             toggleCustomView: settings.customView === true,
-            showCheckItem: undefined,
-            checkItemType: undefined,
+            checkItem: {
+                show: false,
+                type: undefined,
+                field: settings.isField || undefined,
+            },
             response: [],
             selected: []
         };
@@ -375,7 +369,7 @@
         // Initialize the table with data
         $table.data('bsTable', bsTable);
 
-        checkForCheckItems($table);
+        // checkForCheckItems($table);
 
         // Create Structure Elements of the Table
         build.structure($table);
@@ -396,8 +390,9 @@
             settings.columns.some(column => column.field === settings.idField); // idField exists in the columns
 
         const data = $table.data('bsTable');
-        data.showCheckItem = showCheckItem;
-        data.checkItemType = showCheckItem ? (isCheckbox ? 'checkbox' : 'radio') : undefined;
+        data.checkItem.show = showCheckItem;
+        data.checkItem.type = showCheckItem ? (isCheckbox ? 'checkbox' : 'radio') : undefined;
+        data.checkItem.field = showCheckItem ? settings.idField : undefined;
         $table.data('bsTable', data);
     }
 
@@ -1299,6 +1294,7 @@
                 }
             }
         }, table($table) {
+            checkForCheckItems($table);
             const settings = getSettings($table);
             const selected = getSelected($table);
             if (settings.debug) {
@@ -1839,7 +1835,7 @@
         let columnCount = settings.columns.filter(column => !onlyVisible || column.visible !== false).length;
 
         // Prüft, ob mindestens eine Spalte checkbox: true oder radio: true ist.
-        const hasCheckboxOrRadio = settings.columns.some(column => column.checkbox === true || column.radio === true);
+        const hasCheckboxOrRadio = showCheckItem($table);
 
         // Wenn eine solche Spalte existiert, rechne 1 hinzu
         if (hasCheckboxOrRadio) {
@@ -1866,11 +1862,11 @@
     }
 
     function showCheckItem($table) {
-        return $table.data('bsTable').showCheckItem
+        return $table.data('bsTable').checkItem.show;
     }
 
     function getCheckItemType($table) {
-        return $table.data('bsTable').checkItemType
+        return $table.data('bsTable').checkItem.type;
     }
 
     function getSelected($table) {
