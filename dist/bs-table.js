@@ -27,6 +27,13 @@
             showFooter: false,
             showToggle: false,
             showColumns: false,
+            showCheckItems: false,
+            checkItemConfig: {
+                type: 'checkbox', // checkbox or radio
+                field: 'id', // the value field
+                name: 'btSelectItem', // When Typ Checkbox is, the name is converted to an array
+                clickRowToSelect: true // CheckItem toggle on click row
+            },
             cardView: false,
             showCustomView: false,
             customView: false,
