@@ -1422,7 +1422,22 @@
             if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
                 this.thead($table);
                 this.tbody($table, currentPageData);
-                this.tfoot($table, response.rows);
+                this.tfoot($table, currentPageData);
+                const elementsNotInPageData = selected.filter(item => {
+                    return !currentPageData.some(row => row[settings.idField] === item[settings.idField]); // Vergleich basierend auf 'id' oder einem eindeutigen Attribut
+                });
+                wrapper.find('.bs-invisible-checked').remove();
+                elementsNotInPageData.forEach(row => {
+                    const value = row[settings.idField];
+                    $('<input>', {
+                        class:'bs-invisible-checked',
+                        type: 'hidden',
+                        name: `${settings.idField}[]`,
+                        value: value,
+                    }).appendTo(wrapper);
+                })
+
+
             }
 
             $table.children('thead').find('.' + bsTableClasses.checkLabelHeader).text(selected.length);
