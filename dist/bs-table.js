@@ -36,7 +36,8 @@
             data: null,
             columns: [],
             minimumCountColumns: 1,
-            idField: null,
+            idField: undefined,
+            selectItemName: 'btSelectItem',
             clickToSelect: false,
             icons: {
                 sortAsc: 'bi bi-caret-down-fill text-primary',
@@ -453,6 +454,7 @@
                 show: false,
                 type: undefined,
                 field: settings.idField || undefined,
+                name: settings.selectItemName || undefined
             },
             response: [],
             selected: []
@@ -460,8 +462,6 @@
 
         // Initialize the table with data
         $($table).data('bsTable', bsTable);
-
-        // checkForCheckItems($table);
 
         // Create Structure Elements of the Table
         build.structure($table);
@@ -478,22 +478,26 @@
      * @param {object} $table - The table instance to configure, typically represented as a jQuery object.
      * @return {void} Does not return a value but modifies the table's data properties based on the "checkItems" configuration.
      */
-    function checkForCheckItems($table) {
+    function calculateCheckItem($table) {
         const settings = getSettings($table);
         const isCheckbox = settings.columns.some(column => column.checkbox === true);
         const isRadio = settings.columns.some(column => column.radio === true);
 
         const showCheckItem =
+            settings.selectItemName && // idField is set
             settings.idField && // idField is set
             settings.columns.length && // Columns are defined
             (isCheckbox || isRadio) && // At least one column has a checkbox or radio
             settings.columns.some(column => column.field === settings.idField); // idField exists in the columns
 
         const data = $table.data('bsTable');
-        data.checkItem.show = showCheckItem;
-        data.checkItem.type = showCheckItem ? (isCheckbox ? 'checkbox' : 'radio') : undefined;
-        data.checkItem.field = showCheckItem ? settings.idField : undefined;
-        $table.data('bsTable', data);
+        const checkItem = {
+            show: showCheckItem,
+            type: showCheckItem ? (isCheckbox ? 'checkbox' : 'radio') : undefined,
+            field: showCheckItem ? settings.idField : undefined,
+            name: showCheckItem ? settings.selectItemName : undefined,
+        };
+        setCheckItem($table, checkItem);
     }
 
     $.fn.bsTable = function (optionsOrMethod, ...args) {
@@ -1393,7 +1397,8 @@
                 }
             }
         }, table($table) {
-            checkForCheckItems($table);
+            calculateCheckItem($table);
+            const checkItem = getCheckItem($table);
             const settings = getSettings($table);
             const selected = getSelected($table);
             if (settings.debug) {
@@ -1423,19 +1428,21 @@
                 this.thead($table);
                 this.tbody($table, currentPageData);
                 this.tfoot($table, currentPageData);
-                const elementsNotInPageData = selected.filter(item => {
-                    return !currentPageData.some(row => row[settings.idField] === item[settings.idField]); // Vergleich basierend auf 'id' oder einem eindeutigen Attribut
-                });
-                wrapper.find('.bs-invisible-checked').remove();
-                elementsNotInPageData.forEach(row => {
-                    const value = row[settings.idField];
-                    $('<input>', {
-                        class:'bs-invisible-checked',
-                        type: 'hidden',
-                        name: `${settings.idField}[]`,
-                        value: value,
-                    }).appendTo(wrapper);
-                })
+                if (checkItem.show) {
+                    const elementsNotInPageData = selected.filter(item => {
+                        return !currentPageData.some(row => row[checkItem.field] === item[checkItem.field]); // Vergleich basierend auf 'id' oder einem eindeutigen Attribut
+                    });
+                    wrapper.find('.bs-invisible-checked').remove();
+                    elementsNotInPageData.forEach(row => {
+                        const value = row[checkItem.field];
+                        $('<input>', {
+                            class: 'bs-invisible-checked',
+                            type: 'hidden',
+                            name: `${checkItem.name}[]`,
+                            value: value,
+                        }).appendTo(wrapper);
+                    });
+                }
 
 
             }
@@ -1864,6 +1871,7 @@
         const settings = getSettings($table);
         const selected = getSelected($table);
         const forHeader = $.bsTable.utils.isValueEmpty(row);
+        const checkItem = getCheckItem($table);
 
 
         const $thCheckbox = $(forHeader ? '<th></th>' : '<td></td>', {
@@ -1915,14 +1923,14 @@
 
         // add specific attributes when there are line data
         if (!forHeader) {
-            const field = settings.idField;
+            const field = checkItem.field;
             const rowValue = row[field] ?? null;
 
             $thCheckboxInput.attr('value', row[field] ?? null);
             // behavior dependent on the type
             if (isCheckbox) {
                 // For checkboxes, the name remains an array
-                $thCheckboxInput.attr('name', `${field}[]`);
+                $thCheckboxInput.attr('name', `${checkItem.name}[]`);
             } else {
                 // For radio buttons we remove the array suffix []
                 $thCheckboxInput.attr('name', field);
@@ -1984,6 +1992,15 @@
     function showCheckItem($table) {
         return $table.data('bsTable').checkItem.show;
     }
+    function getCheckItem($table) {
+        return $table.data('bsTable').checkItem;
+    }
+    function setCheckItem($table, checkItem) {
+        // Access the table's data
+        const data = $table.data('bsTable');
+        data.checkItem = checkItem;
+        $table.data('bsTable', data);
+    }
 
     function getCheckItemType($table) {
         return $table.data('bsTable').checkItem.type;
@@ -1996,8 +2013,9 @@
     function addSelected($table, selected) {
         // Access the table's data
         const data = $table.data('bsTable');
+        const checkItem = data.checkItem;
         // Get the unique field identifier (e.g., idField)
-        const idField = data.settings.idField;
+        const idField =checkItem.field;
 
         if (data) {
             // Check if the selected item already exists in 'data.selected'
@@ -2023,7 +2041,8 @@
     function removeSelected($table, row) {
         // Retrieve the table's internal data
         const data = $table.data('bsTable');
-        const idField = data.settings.idField; // The field used as a unique identifier
+        const checkItem = data.checkItem;
+        const idField = checkItem.field; // The field used as a unique identifier
 
         if (data) {
             if (data.settings.debug) {
