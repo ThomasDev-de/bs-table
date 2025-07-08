@@ -105,6 +105,7 @@
             debug: false
         },
         columnDefaults: {
+            class: undefined,
             field: undefined,
             checkbox: false,
             radio: false,
