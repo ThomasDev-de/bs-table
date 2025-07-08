@@ -131,7 +131,7 @@
 <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 
 
-<!--suppress JSUnresolvedReference -->
+<!--suppress JSUnresolvedReference, JSUnusedLocalSymbols -->
 <script>
     $(document).ready(function () {
 
@@ -184,18 +184,14 @@
             paginationVAlign: 'both',
             showToggle: true,
             pagination: true,
-            onCustomView(rows, columns, $td) {
+            onCustomView(rows, $td) {
                 const ret = ['<div class=""><div class="grid mx-auto">'];
                 let index = 0;
-                const columnOption = columns.find(column => column.field === 'option');
-                const columnDescription = columns.find(column => column.field === 'description');
-                const columnExamples = columns.find(column => column.field === 'examples');
                 rows.map(row => {
-                    const option = columnOption.visible ? '<h5>${row.option}</h5>' : '';
                     const examples = renderCodeTabs(row.examples, index);
                     ret.push(`<div class="grid-item">
                         <div class="card card-body">
-                            ${option}
+                            <h5>${row.option}</h5>
                             <p class="card-text">${formatMarkdownToHtml(row.description)}</p>
                             ${examples}
                         </div>

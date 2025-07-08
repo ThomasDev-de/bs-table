@@ -7,8 +7,8 @@
   "unused": true,
   "sub": true,
   "asi": true,
+  "-W098": true,
   "globals": {
-    "$": true,
     "jQuery": true,
     "bootstrap": true
   }

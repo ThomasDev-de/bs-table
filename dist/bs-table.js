@@ -1,6 +1,7 @@
 (function ($) {
     "use strict";
 
+    /* jshint unused:false */
     $.bsTable = {
         version: '1.0.2', globalEventsBound: false, setDefaults(options) {
             this.defaults = $.extend(true, {}, this.defaults, options || {});
@@ -29,8 +30,7 @@
             cardView: false,
             showCustomView: false,
             customView: false,
-            onCustomView(rows, columns, $td) {
-                console.log(rows, columns, $td);
+            onCustomView(_rows, _$td) {
             },
             url: null,
             data: null,
@@ -45,50 +45,48 @@
                 refresh: 'bi bi-arrow-clockwise',
                 search: 'bi bi-search',
                 paginationNext: 'bi bi-chevron-right',
-                paginationprev: 'bi bi-chevron-left',
+                paginationPrev: 'bi bi-chevron-left',
                 toggleOff: 'bi bi-toggle-off',
                 toggleOn: 'bi bi-toggle-on',
                 customViewOff: 'bi bi-columns-gap',
                 customViewOn: 'bi bi-table',
             },
-            rowStyle(row, index, $tr) {
-                console.log(row, index, $tr);
+            rowStyle(_row, _index, _$tr) {
             },
-            queryParams(params) {
-                return params;
+            queryParams(_params) {
+                return _params;
             },
-            responseHandler(res) {
-                return res;
+            responseHandler(_res) {
+                return _res;
             },
             caption: null,
-            onAll(eventName, ...args) {
-                console.log(eventName, args);
+            onAll(_eventName, ..._args) {
             },
             onLoadSuccess() {
             },
             onLoadError() {
             },
-            onPreBody(rows, $table) {
+            onPreBody(_rows, _$table) {
             },
-            onPostHeader($thead, $table) {
+            onPostHeader(_$thead, _$table) {
             },
-            onPostBody(rows, $table) {
+            onPostBody(_rows, _$table) {
             },
-            onPostFooter($tfoot, $table) {
+            onPostFooter(_$tfoot, _$table) {
             },
-            onRefresh(params) {
+            onRefresh(_params) {
             },
-            onSort(name, order) {
+            onSort(_name, _order) {
             },
-            onClickCell(field, value, row, $td) {
+            onClickCell(_field, _value, _row, _$td) {
             },
-            onClickRow(row, $tr, field) {
+            onClickRow(_row, _$tr, _field) {
             },
-            onCheck(row, $input) {
+            onCheck(_row, _$input) {
             },
             onCheckAll() {
             },
-            onUncheck(row, $input) {
+            onUncheck(_row, _$input) {
             },
             onUncheckAll() {
             },
@@ -98,14 +96,15 @@
             formatSearch() {
                 return `...`
             },
-            formatShowingRows(pageFrom, pageTo, totalRows) {
-                return `Showing ${pageFrom} to ${pageTo} of ${totalRows} rows`;
+            formatShowingRows(_pageFrom, _pageTo, _totalRows) {
+                return `Showing ${_pageFrom} to ${_pageTo} of ${_totalRows} rows`;
             },
             formatRecordsPerPage() {
                 return `records per page`;
             },
             debug: false
-        }, columnDefaults: {
+        },
+        columnDefaults: {
             field: undefined,
             checkbox: false,
             radio: false,
@@ -117,8 +116,10 @@
             halign: 'start',
             falign: 'start',
             formatter: undefined,
+            footerFormatter: undefined,
             events: undefined
-        }, utils: {
+        },
+        utils: {
             sortArrayByField(data, field, order = "ASC") {
                 // Sicherstellen, dass die Reihenfolge korrekt ist
                 const direction = order.toUpperCase() === "DESC" ? -1 : 1;
@@ -184,39 +185,41 @@
                 }
 
                 return visiblePages;
-            }, executeFunction(functionOrName, ...args) {
-                if (functionOrName) {
-                    // Direct Function Reference
-                    if (typeof functionOrName === 'function') {
-                        return functionOrName(...args);
-                    }
+            },
+            executeFunction(functionOrName, ...args) {
+                if (!functionOrName) {
+                    console.error('Kein Funktionsname oder Funktionsreferenz übergeben!');
+                    return undefined;
+                }
 
-                    // Check Function Name in String Format
-                    if (typeof functionOrName === 'string') {
-                        let func = null;
+                let func;
 
-                        // Step 1: Check the local context
-                        try {
-                            func = new Function(`return typeof ${functionOrName} === 'function' ? ${functionOrName} : undefined`)();
-                        } catch (error) {
-                            // Ignore mistakes and move on to the next step
-                        }
+                // 1. Direkte Funktionsreferenz: Überprüfen, ob ein Funktionsobjekt übergeben wurde
+                if (typeof functionOrName === 'function') {
+                    func = functionOrName;
+                }
 
-                        // Step 2: Check in the global 'window' context
-                        if (!func && typeof window !== 'undefined' && typeof window[functionOrName] === 'function') {
-                            func = window[functionOrName];
-                        }
-
-                        // If the function is found, run it
-                        if (typeof func === 'function') {
-                            return func(...args);
-                        }
+                // 2. Funktionsname im String-Format: Prüfen im globalen Kontext (`window`)
+                else if (typeof functionOrName === 'string') {
+                    // a. Versuche, die Funktion direkt über ihren Namen im globalen Kontext zu finden
+                    if (typeof window !== 'undefined' && typeof window[functionOrName] === 'function') {
+                        func = window[functionOrName];
+                    } else {
+                        console.error(`Die Funktion "${functionOrName}" konnte nicht im globalen Kontext gefunden werden.`);
+                        return undefined;
                     }
                 }
 
-                // Explicit return if nothing was executed
-                return undefined;
-            }, isValueEmpty(value) {
+                // 3. Wenn keine Funktion gefunden wurde, Fehler zurückgeben
+                if (!func) {
+                    console.error(`Ungültige Funktion oder Name: "${functionOrName}"`);
+                    return undefined;
+                }
+
+                // 4. Die Funktion sicher ausführen und die Rückgabe ausdrücken
+                return func(...args);
+            },
+            isValueEmpty(value) {
                 if (value === null || value === undefined) {
                     return true; // Null or undefined
                 }
@@ -230,30 +233,38 @@
             }
         }
     };
+    /* jshint unused:true */
 
     const namespace = '.bs.table';
 
     const bsTableClasses = {
         wrapper: 'bs-table', // Overall wrapper class
-        wrapperResponsive: 'bs-table-responsive', // Overall wrapper class
-        overlay: 'bs-table-overlay', // For the visual loading overlay
-        topContainer: 'bs-table-top-container', // Der Kontainer über der Tabelle
-        bottomContainer: 'bs-table-bottom-container', // Der Kontainer unter der Tabelle
+        wrapperResponsive: 'bs-table-responsive', // Responsive wrapper variant
+        overlay: 'bs-table-overlay', // For the visual loading overlay/spinner
+        topContainer: 'bs-table-top-container', // The container above the table
+        bottomContainer: 'bs-table-bottom-container', // The container below the table
         search: 'bs-table-search', // Wrapper for the search field
         searchInput: 'bs-table-search-input', // The search input field
-        buttons: 'bs-table-buttons', // Kontainer für die Buttons im TopKontainer
-        btnRefresh: 'bs-table-btn-refresh',
-        btnToggle: 'bs-table-btn-toggle-view',
-        btnCustomView: 'bs-table-btn-custom-view',
-        toolbar: 'bs-table-toolbar', // Toolbar Container
+        buttons: 'bs-table-buttons', // Container for the buttons in the top container
+        btnRefresh: 'bs-table-btn-refresh', // Refresh button
+        btnToggle: 'bs-table-btn-toggle-view', // Button to toggle table view
+        btnCustomView: 'bs-table-btn-custom-view', // Button for the custom view mode
+        toolbar: 'bs-table-toolbar', // Toolbar container
         pagination: 'bs-table-pagination', // Wrapper for the pagination controls
         paginationDetails: 'bs-table-pagination-details', // Wrapper for detailed pagination information
-        checkLabelHeader: 'bs-table-check-label-header',
-        checkInputHeader: 'bs-table-check-input-header',
-        checkInputBody: 'bs-table-check-input-body',
+        checkLabelHeader: 'bs-table-check-label-header', // Checkbox label container in the table header
+        checkInputHeader: 'bs-table-check-input-header', // Checkbox input in the table header
+        checkInputBody: 'bs-table-check-input-body', // Checkbox input in the table body
     };
 
     const methods = {
+        /**
+         * Refreshes the table options and settings based on the provided configuration.
+         *
+         * @param {jQuery} $table The jQuery object is representing the table to be refreshed.
+         * @param {Object} settings The new settings to be applied to the table.
+         * @return {void} This method does not return a value.
+         */
         refreshOptions($table, settings) {
             const setup = getSettings($table);
             const newSettings = $.extend(true, {}, setup, settings || {});
@@ -264,40 +275,84 @@
             setSettings($table, newSettings);
             // checkForCheckItems($table);
             refresh($table);
-        }, hideRowByIndex($table, rowIndex) {
-            $table.children('tbody').children(`tr[data-index="${rowIndex}"]:not(.d-none)`).addClass('d-none');
-        }, getHiddenColumns($table) {
+        },
+        /**
+         * Hides a specific row in the given table by its index.
+         *
+         * @param {jQuery} $table - The jQuery object representing the table containing the row to hide.
+         * @param {number} rowIndex - The index of the row to hide, as identified by the `data-index` attribute.
+         * @return {void} This method does not return a value.
+         */
+        hideRowByIndex($table, rowIndex) {
+            $($table).children('tbody').children(`tr[data-index="${rowIndex}"]:not(.d-none)`).addClass('d-none');
+        },
+        /**
+         * Retrieves the list of hidden columns for the provided table.
+         *
+         * @param {Object} $table - The table element or table configuration object.
+         * @return {Array<string>} An array of field names representing the hidden columns.
+         */
+        getHiddenColumns($table) {
             const settings = getSettings($table);
             const hiddenColumns = [];
             settings.columns.forEach(column => {
-                if (column.chekbox !== true && column.radio !== true) {
+                if (column.checkbox !== true && column.radio !== true) {
                     if (column.visible === false) {
                         hiddenColumns.push(column.field);
                     }
                 }
             });
             return hiddenColumns;
-        }, getVisibleColumns($table) {
+        },
+        /**
+         * Retrieves the visible columns for the provided table.
+         *
+         * @param {Object} $table - The table element or reference for which visible columns need to be determined.
+         * @return {Array<string>} A list of field names for the columns that are marked as visible and are neither checkboxes nor radio buttons.
+         */
+        getVisibleColumns($table) {
             const settings = getSettings($table);
             const visibleColumns = [];
             settings.columns.forEach(column => {
-                if (column.chekbox !== true && column.radio !== true) {
+                if (column.checkbox !== true && column.radio !== true) {
                     if (column.visible === true) {
                         visibleColumns.push(column.field);
                     }
                 }
             });
             return visibleColumns;
-        }, showRowByIndex($table, rowIndex) {
-            $table.children('tbody').children(`tr[data-index="${rowIndex}"].d-none`).removeClass('d-none');
-        }, getScrollPosition($table) {
+        },
+        /**
+         * Displays a row in the table that was previously hidden by removing the 'd-none' class.
+         *
+         * @param {jQuery} $table - A jQuery object representing the table element.
+         * @param {number|string} rowIndex - The index of the row to show, which corresponds to the value of the 'data-index' attribute.
+         * @return {void} This method does not return a value.
+         */
+        showRowByIndex($table, rowIndex) {
+            $($table).children('tbody').children(`tr[data-index="${rowIndex}"].d-none`).removeClass('d-none');
+        },
+        /**
+         * Retrieves the current scroll position of the specified table's wrapper element.
+         *
+         * @param {jQuery} $table - A jQuery-wrapped table element whose scroll position is to be determined.
+         * @return {Object} An object containing the x and y scroll positions.
+         *                  - x {number}: The horizontal scroll position.
+         *                  - y {number}: The vertical scroll position.
+         */
+        getScrollPosition($table) {
             const $wrapper = getResponsiveWrapper($table);
             return {
-                x: $wrapper.scrollLeft(), y: $wrapper.scrollTop()
+                x: $($wrapper).scrollLeft(), y: $($wrapper).scrollTop()
             };
-        }, showLoading($table) {
-            const settings = getSettings($table);
-
+        },
+        /**
+         * Displays a loading overlay over the specified table element.
+         *
+         * @param {HTMLElement|jQuery} $table - The table element over which the loading overlay should be displayed.
+         * @return {void} This method does not return any value.
+         */
+        showLoading($table) {
             const wrapper = getWrapper($table);
             // Vorhandenes Overlay entfernen, falls vorhanden
             this.hideLoading($table);
@@ -311,12 +366,20 @@
             }).appendTo(wrapper);
 
             // Placeholder-Struktur erstellen (Inhalt des Overlays)
-            const $content = $('<div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">' + '<span class="visually-hidden">Loading...</span>' + '</div>').appendTo($overlay);
+            $('<div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">' + '<span class="visually-hidden">Loading...</span>' + '</div>').appendTo($overlay);
 
             // Sanftes Einblenden mit animate
             $overlay.animate({opacity: 0.75}, 100); // Dauer: 300ms
-        }, hideLoading($table) {
-            const $overlay = getOverlay($table);
+        },
+        /**
+         * Hides the loading overlay for the specified table element.
+         * Stops any ongoing animation on the overlay and animates its opacity to 0 before removing it from the DOM.
+         *
+         * @param {jQuery} $table - The jQuery object representing the table element for which the loading overlay should be hidden.
+         * @return {void} This method does not return a value.
+         */
+        hideLoading($table) {
+            const $overlay = $(getOverlay($table));
             if (!$overlay.length) {
                 return;
             } // Abbruch, falls kein Overlay vorhanden ist
@@ -329,23 +392,36 @@
         }
     }
 
+    /**
+     * Initializes a table with the given settings or method, ensuring proper configuration
+     * for options, columns, and height.
+     * If the table has already been initialized,
+     * it updates the options if provided.
+     *
+     * @param {jQuery} $table - The jQuery table element to be initialized.
+     * @param {Object|string} optionsOrMethod - The configuration options for the table
+     *                                           or the method to invoke on the table.
+     * @return {void} This method does not return anything.
+     * It sets up the table
+     *                element, configures its settings, and manages its initialization state.
+     */
     function initTable($table, optionsOrMethod) {
 
         // Check if the table is already initialized
-        if ($table.data('bsTable')) {
+        if ($($table).data('bsTable')) {
             // If the table has already been initialized and settings have been passed anyway,
             // refresh the settings
             if (typeof optionsOrMethod === 'object') {
-                method.refreshOptions($table, optionsOrMethod);
+                methods.refreshOptions($table, optionsOrMethod);
             }
             return;
         }
-        // If globa events has not been initialized, do so once
+        // If global events have not been initialized, do so once
         if (!$.bsTable.globalEventsBound) {
             registerGlobalTableEvents(); // Globale Initialisierung binden (nur einmalig)
         }
         const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
-        const settings = $.extend(true, {}, $.bsTable.getDefaults(), $table.data() || {}, options || {});
+        const settings = $.extend(true, {}, $.bsTable.getDefaults(), $($table).data() || {}, options || {});
 
         // Make sure that all columns are fully populated
         const columns = [];
@@ -360,10 +436,10 @@
         // refresh the columns
         settings.columns = columns;
 
-        // handle table heigth
-        const height = settings.height || $table.data('height') || parseInt($table.css('height'), 10);
+        // handle table height
+        const height = settings.height || $($table).data('height') || parseInt($($table).css('height'), 10);
         if (!isNaN(height) && height !== 0) {
-            settings.height = height; // Apply valid amount
+            settings.height = height; // Apply a valid amount
         } else {
             settings.height = undefined; // Ignore invalid values (NaN, 0)
         }
@@ -375,24 +451,32 @@
             checkItem: {
                 show: false,
                 type: undefined,
-                field: settings.isField || undefined,
+                field: settings.idField || undefined,
             },
             response: [],
             selected: []
         };
 
         // Initialize the table with data
-        $table.data('bsTable', bsTable);
+        $($table).data('bsTable', bsTable);
 
         // checkForCheckItems($table);
 
         // Create Structure Elements of the Table
-        build.structure($table).then();
+        build.structure($table);
 
         // Update table (e.g. load or render data)
         refresh($table);
     }
 
+    /**
+     * Updates check item settings for the given table instance based on its configuration.
+     * This method determines whether to show check items (checkbox or radio buttons)
+     * and their type by analyzing the table's settings and columns.
+     *
+     * @param {object} $table - The table instance to configure, typically represented as a jQuery object.
+     * @return {void} Does not return a value but modifies the table's data properties based on the "checkItems" configuration.
+     */
     function checkForCheckItems($table) {
         const settings = getSettings($table);
         const isCheckbox = settings.columns.some(column => column.checkbox === true);
@@ -401,7 +485,7 @@
         const showCheckItem =
             settings.idField && // idField is set
             settings.columns.length && // Columns are defined
-            (isCheckbox || isRadio) && // At least one column has checkbox or radio
+            (isCheckbox || isRadio) && // At least one column has a checkbox or radio
             settings.columns.some(column => column.field === settings.idField); // idField exists in the columns
 
         const data = $table.data('bsTable');
@@ -413,7 +497,7 @@
 
     $.fn.bsTable = function (optionsOrMethod, ...args) {
         if ($(this).length === 0) {
-            return this; // No element selected
+            return $(this); // No element selected
         }
         if ($(this).length > 1) {
             // If multiple tables are selected, apply the logic to each table individually
@@ -533,7 +617,7 @@
      */
     function setCaption($table, stringOrObject) {
         const settings = getSettings($table);
-        let caption = $table.find('caption:first');
+        let caption = $($table).find('caption:first');
         const isEmpty = $.bsTable.utils.isValueEmpty(stringOrObject);
         if (isEmpty) {
             caption.remove();
@@ -542,7 +626,7 @@
         const captionClasses = [];
         const isString = typeof stringOrObject === 'string';
         const isObject = typeof stringOrObject === 'object';
-        const captionText = isString ? stringOrObject : isObject ? stringOrObject.text : null;
+        const captionText = isString ? stringOrObject : (isObject && stringOrObject && 'text' in stringOrObject) ? stringOrObject.text : null;
         if (!caption.length) {
             caption = $('<caption>', {
                 html: captionText,
@@ -620,6 +704,7 @@
 
         // Gesamteinstellungen aktualisieren
         if (update) {
+            settings.url = url;
             settings.pageNumber = pageNumber;
             settings.pageSize = pageSize;
             setSettings($table, settings);
@@ -659,12 +744,13 @@
      * Fetches data for a table, handling local or remote data sources,
      * sorting, pagination, and optional search functionality.
      *
-     * @param {jQuery} $table The jQuery object representing the table for which data is being fetched.
+     * @param {jQuery} $jqTable The jQuery object representing the table for which data is being fetched.
      * @param {boolean} [triggerRefresh=false] Indicates whether a "refresh" event should be triggered during data fetching.
      * @return {Promise} A promise that resolves when the data has been successfully fetched and processed,
      *                   or rejects if there is an error during the data fetching process.
      */
-    function fetchData($table, triggerRefresh = false) {
+    function fetchData($jqTable, triggerRefresh = false) {
+        const $table = $($jqTable);
         const settings = getSettings($table);
         if (settings.debug) {
             console.groupCollapsed("fetchData");
@@ -689,17 +775,17 @@
                 params.order = settings.sortOrder;
             }
 
-            // Handle limit and offset
-            // Pagination prüfen und anpassen
+            // handle limit and offset
+            // check and adapt pagination
             const pageNumber = settings.pageNumber > 0 ? settings.pageNumber : 1;
-            const pageSize = settings.pageSize ?? 10; // Setze Standardwert, falls pageSize nicht definiert ist
+            const pageSize = settings.pageSize ?? 10; // Set a standard value if pageSize is not defined
 
             if (pageSize === 0) {
                 if (settings.debug) {
                     console.log("Besonderer Fall: pageSize = 0 (Alle Datensätze anzeigen).");
                 }
-                params.limit = null; // Keine Begrenzung
-                params.offset = 0;   // Keine Verschiebung
+                params.limit = null; // no limitation
+                params.offset = 0;   // no shift
             } else {
                 const offset = (pageNumber - 1) * pageSize;
                 params.limit = pageSize;
@@ -711,7 +797,7 @@
 
             // Handle search
             // Suchkriterien verarbeiten
-            const searchInput = getSearchInput($table);
+            const searchInput = $(getSearchInput($table));
             if (settings.search && searchInput.length) {
                 const searchValue = searchInput.val()?.trim() || null;
                 params.search = searchValue && !$.bsTable.utils.isValueEmpty(searchValue) ? searchValue : null;
@@ -721,7 +807,7 @@
             }
 
             // handle custom params
-            // Zusätzliche Query-Parameter vom User
+            // additional query parameters from the user
             if (typeof settings.queryParams === "function") {
                 params = settings.queryParams(params);
                 if (settings.debug) {
@@ -734,7 +820,7 @@
                 $.bsTable.utils.executeFunction(settings.onRefresh, params);
             }
 
-            // Verarbeitung von lokalen Daten
+            // Processing of local data
             if (Array.isArray(settings.data)) {
 
                 if (settings.debug) {
@@ -755,7 +841,7 @@
                     }
                 }
 
-                // Suche anwenden, falls relevant
+                // use search if relevant
                 if (params.search) {
                     if (settings.debug) {
                         console.log("Suchfilter wird angewendet: ", params.search); // DEBUG
@@ -870,14 +956,14 @@
                                 }
 
                                 const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                                $table.data("response", responseAfter ?? processedResponse);
+                                $($table).data("response", responseAfter ?? processedResponse);
                                 resolve();
                             })
                             .catch(error => {
                                 if (settings.debug) {
-                                    console.error("Fehler bei Funktions-URL-Verarbeitung:", error); // DEBUG
+                                    console.error("Error in functional URL processing:", error); // DEBUG
                                 }
-                                reject(new Error(`Fehler bei der Verarbeitung der Funktion: ${error.message || error}`));
+                                reject(new Error(`Error processing of the function: ${error.message || error}`));
                             });
                     } else {
                         // 'url' is an actual URL and not a function name
@@ -888,10 +974,10 @@
                         if (customAjaxOptions && typeof customAjaxOptions === 'object') {
                             defaultAjaxOptions = $.extend(true, {}, defaultAjaxOptions, customAjaxOptions || {});
                         }
-                        const xhr = $table.data('xhr') || null;
+                        const xhr = $($table).data('xhr') || null;
                         if (xhr !== null) {
                             xhr.abort();
-                            $table.removeData('xhr');
+                            $($table).removeData('xhr');
                         }
                         $table.data('xhr', $.ajax(defaultAjaxOptions)
                             .done(response => {
@@ -932,7 +1018,7 @@
             const $wrapper = $('<div>', {
                 class: bsTableClasses.wrapper + ' position-relative', id: wrapperId,
             }).insertAfter($table);
-            const $wrapperRespnsive = $('<div>', {
+            const $wrapperResponsive = $('<div>', {
                 class: 'table-responsive ' + bsTableClasses.wrapperResponsive,
             }).appendTo($wrapper);
 
@@ -940,7 +1026,7 @@
             $wrapper.attr('data-child', isChild);
             $table.attr('data-wrapper', wrapperId);
 
-            $table.appendTo($wrapperRespnsive);
+            $table.appendTo($wrapperResponsive);
             setCaption($table, settings.caption);
 
             this.tableTopContainer($table);
@@ -956,7 +1042,7 @@
             const totalRows = response.total || (response.rows ? response.rows.length : 0);
             // Berechnung der Anzeige-Daten (Start- und Endzeilen)
             const pageSize = settings.pageSize || totalRows; // "All" wird als alle Zeilen interpretiert
-            const currentPage = settings.pageNumber || 1;
+            // const currentPage = settings.pageNumber || 1;
             const smallBtn = $table.hasClass('table-sm') ? 'btn-sm' : '';
 
             // Haupt-Wrapper (d-flex für Flexbox)
@@ -1012,7 +1098,7 @@
 
             // Dropdown-Toggle-Button
             const $dropdownToggle = $('<button>', {
-                'class': `btn btn-secondary dropdown-toggle ${smallBtnClass}`,
+                'class': `btn btn-secondary dropdown-toggle ${smallBtnClass} $(disabledClass)`,
                 'type': 'button',
                 'id': 'dropdownColumnVisibility',
                 'data-bs-toggle': 'dropdown',
@@ -1032,24 +1118,29 @@
             // Zähler für sichtbare Spalten
             let checkedColumnsCount = settings.columns.filter(column => column.visible !== false).length;
 
-            // Funktion: Aktivieren oder Deaktivieren von Checkboxen basierend auf Mindestanzahl an sichtbaren Spalten
+            /**
+             * Updates the states of checkboxes based on the configuration and current selection.
+             * Enables or disables checkboxes to ensure that a minimum number of checkboxes remain selected.
+             * Any unchecked checkboxes are always enabled.
+             *
+             * @return {void} Does not return a value.
+             */
             function updateCheckboxStates() {
                 const checked = $dropdownMenu.find('input[type="checkbox"]:checked'); // Alle aktivierten Checkboxen
                 const notChecked = $dropdownMenu.find('input[type="checkbox"]:not(:checked)'); // Alle deaktivierten Checkboxen
 
-                // Wenn die Anzahl gecheckter Checkboxen <= minimumCountColumns ist, deaktiviere die gecheckten Checkboxen
+                // If the number of checked checkboxes is <= minimum countColumns, deactivate the checked checkboxes
                 if (checked.length <= settings.minimumCountColumns) {
-                    checked.prop('disabled', true); // Gecheckte Checkboxen deaktivieren
+                    checked.prop('disabled', true); // Deactivate checked checkboxes
                 } else {
-                    checked.prop('disabled', false); // Gecheckte Checkboxen aktivieren, wenn Limit nicht erreicht
+                    checked.prop('disabled', false);// Activate checked checkboxes when a limit is not reached
                 }
 
-                // Nicht gecheckte Checkboxen bleiben immer aktiv (disable = false)
+                // non-checked checkboxes always remain active (disable = false)
                 notChecked.prop('disabled', false);
             }
 
-            // Für jede Spalte eine Checkbox hinzufügen
-
+            // Add a checkbox for each column
             settings.columns.forEach((column) => {
                 const isVisible = column.visible !== false;
 
@@ -1098,7 +1189,7 @@
             $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
             return $dropdownWrapper;
         }, buttons($table) {
-            const $wrapper = getWrapper($table);
+            const $wrapper = $(getWrapper($table));
             const settings = getSettings($table);
             const $btnContainer = $wrapper.find(`.${bsTableClasses.buttons}:first`).empty();
             const smallBtnClass = $table.hasClass('table-sm') ? 'btn-sm' : '';
@@ -1144,22 +1235,21 @@
 
             const template = '' + '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.topContainer + '">' + '<div class="d-flex justify-content-end align-items-end">' + '<div class="d-flex ' + bsTableClasses.toolbar + ' me-auto"></div>' + '<div class="d-flex ' + bsTableClasses.search + '"></div>' + '<div class="btn-group ' + bsTableClasses.buttons + '"></div>' + '</div>' + '<div class="d-flex justify-content-between align-items-end ' + flexClass + '">' + '<div class="' + bsTableClasses.paginationDetails + '"></div>' + '<div class="' + bsTableClasses.pagination + ' top"></div>' + '</div>' + '</div>';
 
-            // Top Container bestehend aus 1-n Zeilen
+            // top container consisting of 1-n lines
             const $tableTopContainer = $(template).prependTo($wrapper);
             const $toolbarContainer = $tableTopContainer.find('.' + bsTableClasses.toolbar);
             const $searchWrapper = $tableTopContainer.find('.' + bsTableClasses.search);
 
 
-            // Falls ein Toolbar-Element definiert ist, füge dieses in die erste Zeile und
-            // setze margin end auf auto, damit sie links zentriert ist
+            // If a toolbar element is defined, add it to the first line and
+            // Put Margin End on the car so that it is centered on the left
             if (settings.toolbar && $(settings.toolbar).length > 0) {
                 $(settings.toolbar).prependTo($toolbarContainer);
             }
 
-            // Such-Wrapper erstellen (links)
-            // Falls die Suche aktiviert ist, füge ein Input-Feld und Logik hinzu
+            // Create a search wrapper (left)
+            // If the search is activated, add an input field and logic
             if (settings.search === true) {
-
                 const placeholder = $.bsTable.utils.executeFunction(settings.formatSearch)
                 const $searchInputGroup = $(`<div class="input-group">` + '<span class="input-group-text">' + '<i class="' + settings.icons.search + '"></i>' + '</span>' + '<input type="search" class="form-control ' + bsTableClasses.searchInput + '" placeholder="' + placeholder + '">' + '</div>');
                 $searchInputGroup.appendTo($searchWrapper);
@@ -1184,7 +1274,7 @@
             const template = '' + '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.bottomContainer + '">' + '<div class="d-flex justify-content-between align-items-start ' + flexClass + '">' + '<div class="' + bsTableClasses.paginationDetails + '"></div>' + '<div class="' + bsTableClasses.pagination + ' bottom"></div>' + '</div>' + '</div>';
             $(template).appendTo($wrapper);
         }, pagination($table, totalRows) {
-            // Retrieve table-specific settings for pagination (e.g., page number, page size).
+            // Retrieve table-specific settings for pagination (e.g. page number, page size).
             const settings = getSettings($table);
 
             // Compute the total number of pages based on the total number of rows and page size.
@@ -1207,7 +1297,7 @@
 
 
             /**
-             * Helper function to create a pagination item (e.g., page links, "previous", "next").
+             * Helper function to create a pagination item (e.g. page links, "previous", "next").
              * @param {string|null} role - The role of the element (e.g., 'previous', 'next', or null for page numbers).
              * @param {boolean} disabled - Determines whether the item is disabled.
              * @param {boolean} active - Determines whether the item is the active page.
@@ -1225,7 +1315,7 @@
                     class: 'page-link', // Apply Bootstrap class to style the link.
                     href: '#', // Prevent actual navigation for the link.
                     tabindex: disabled ? '-1' : '', // Disable focus on the link if it's marked as disabled.
-                    'aria-disabled': disabled ? 'true' : 'false', // Set ARIA attribute for accessibility.
+                    'aria-disabled': disabled ? 'true' : 'false', // Set the ARIA attribute for accessibility.
                     html: content // Set the content of the link (HTML or plain text).
                 }).appendTo($item);
             };
@@ -1234,7 +1324,7 @@
             createPageItem('previous', // Role for the "previous" button.
                 currentPage === 1, // Disable if the current page is the first page.
                 false, // The "previous" button is never active.
-                `<i class="${settings.icons.paginationprev}"></i>` // Use an icon for the button content.
+                `<i class="${settings.icons.paginationPrev}"></i>` // Use an icon for the button content.
             );
 
             // Calculate which page numbers to display as visible links.
@@ -1283,8 +1373,8 @@
                 class: 'd-flex align-items-center', html: `<div class="me-3">${text}</div>`,
             })
             dropdown.appendTo($paginationText);
-            const recors = $.bsTable.utils.executeFunction(settings.formatRecordsPerPage, pageSize);
-            $('<div>', {class: 'ms-2', html: recors}).appendTo($paginationText);
+            const records = $.bsTable.utils.executeFunction(settings.formatRecordsPerPage, pageSize);
+            $('<div>', {class: 'ms-2', html: records}).appendTo($paginationText);
 
             const $allDestinations = wrapper.find('.' + bsTableClasses.paginationDetails);
 
@@ -1309,9 +1399,9 @@
                 console.groupCollapsed("Render Table");
             }
             if (typeof settings.height !== undefined) {
-                getResponsiveWrapper($table).css('max-height', settings.height);
+                $(getResponsiveWrapper($table)).css('max-height', settings.height);
             }
-            const wrapper = getClosestWrapper($table);
+            const wrapper = $(getClosestWrapper($table));
             const response = getResponse($table);
             if (settings.debug) {
                 console.log("Response:", response);
@@ -1370,18 +1460,18 @@
             }
 
             build.buttons($table);
-            const $topPaginationContainer = getPaginationContainer($table, true).empty();
-            const $bottomPaginationContainer = getPaginationContainer($table, false).empty();
+            const $topPaginationContainer = $(getPaginationContainer($table, true)).empty();
+            const $bottomPaginationContainer = $(getPaginationContainer($table, false)).empty();
 
-            const $tableTopContainer = getTableTopContainer($table);
+            const $tableTopContainer = $(getTableTopContainer($table));
             const $btnContainer = $tableTopContainer.find(`.${bsTableClasses.buttons}:first`);
 
 
             if ($btnContainer.find('.btn').length && settings.search === true) {
-                // haben wir buttons und ein suchfeld, packe margin hinzu
+                // we have buttons and a search field, pack Margin
                 $btnContainer.addClass('ms-2');
             } else {
-                // andernfalls entferne den margin
+                // otherwise remove the margin
                 $btnContainer.removeClass('ms-2');
             }
 
@@ -1397,7 +1487,8 @@
                     $bottomPaginationContainer.append($paginationHtml.clone());
                 }
             }
-        }, thead($table) {
+        },
+        thead($table) {
             const settings = getSettings($table);
             const columns = settings.columns || [];
             const showHeader = columns.length && settings.showHeader === true && !getToggleView($table) && !getToggleCustomView($table);
@@ -1524,7 +1615,7 @@
                     colspan: getCountColumns($table),
                 }).appendTo($tr);
                 triggerEvent($table, 'custom-view', rows, $td);
-                $.bsTable.utils.executeFunction(settings.onCustomView, rows, columns, $td);
+                $.bsTable.utils.executeFunction(settings.onCustomView, rows, $td);
             } else {
                 let trIndex = 0;
                 rows.forEach(row => {
@@ -1553,7 +1644,7 @@
                 })
             }
 
-            const tableResponsive = getResponsiveWrapper($table);
+            const tableResponsive = $(getResponsiveWrapper($table));
 
             if (tableResponsive.length) {
                 tableResponsive.scrollTop(0);
@@ -1622,30 +1713,29 @@
                     $td.html(value);
                 }
 
-                // Wenn `events` definiert ist, registriere diese für die Zelle
+                // When `Events` is defined, register it for the cell
                 if (column.events) {
-                    for (const [eventSelector, eventHandler] of Object.entries(column.events)) {
-                        // Eventtypen und Selektor extrahieren
-                        const splitEvent = eventSelector.split(' '); // Teile nach Leerzeichen
-                        const selector = splitEvent.pop(); // Das letzte Element ist der Selektor (z.B. "span")
-                        const eventTypes = splitEvent.join(' '); // Alles außer dem Selektor sind Eventtypen
+                    for (let [eventSelector, eventHandler] of Object.entries(column.events)) {
+                        (function (eventSelector, eventHandler, columnFieldValue, rowData) {
+                            const splitEvent = eventSelector.split(' '); // parts according to spaces
+                            const selector = splitEvent.pop(); // The last element is the selector (e.g. "Span")
+                            const eventTypes = splitEvent.join(' '); // Everything except the selector event types
 
-                        // Überprüfe, ob ein spezifischer Selektor angegeben ist
-                        if (selector) {
-                            // Binde das Event mit Delegation, falls ein Selektor definiert ist
-                            $td.on(eventTypes, selector, function (e) {
-                                eventHandler(e, row[column.field] ?? null, row, trIndex);
-                            });
-                        } else {
-                            // Binde das Event direkt an die Zelle, wenn kein Selektor vorhanden ist
-                            $td.on(eventTypes, function (e) {
-                                eventHandler(e, row[column.field] ?? null, row, trIndex);
-                            });
-                        }
+                            if (selector) {
+                                $td.on(eventTypes, selector, function (e) {
+                                    eventHandler(e, columnFieldValue, rowData, trIndex);
+                                });
+                            } else {
+                                $td.on(eventTypes, function (e) {
+                                    eventHandler(e, columnFieldValue, rowData, trIndex);
+                                });
+                            }
+                        })(eventSelector, eventHandler, row[column.field] ?? null, row);
                     }
                 }
             }
-        }, tfoot($table, data) {
+        },
+        tfoot($table, data) {
             const settings = getSettings($table);
             const columns = settings.columns || [];
             const showFooter = columns.length && settings.showFooter === true && !getToggleView($table) && !getToggleCustomView($table);
@@ -1694,8 +1784,6 @@
                 $.bsTable.utils.executeFunction(settings.onPostFooter, $tfoot, $table);
             }
         }, tfootTr(column, $tr, colIndex, data) {
-            const $table = $tr.closest('table');
-
             // Formatierer-Wert prüfen und zuweisen
             const formatterValue = $.bsTable.utils.executeFunction(column.footerFormatter, data);
             const value = !$.bsTable.utils.isValueEmpty(formatterValue) ? formatterValue : '';
@@ -1809,25 +1897,25 @@
             $thCheckboxLabel.addClass(bsTableClasses.checkLabelHeader);
         }
 
-        // Füge spezifische Attribute hinzu, wenn Zeilen-Daten vorhanden sind
+        // add specific attributes when there are line data
         if (!forHeader) {
             const field = settings.idField;
             const rowValue = row[field] ?? null;
 
             $thCheckboxInput.attr('value', row[field] ?? null);
-            // Verhalten abhängig vom Typ
+            // behavior dependent on the type
             if (isCheckbox) {
-                // Für Checkboxen bleibt der Name ein Array
+                // For checkboxes, the name remains an array
                 $thCheckboxInput.attr('name', `${field}[]`);
             } else {
-                // Für Radio-Buttons entfernen wir das Array-Suffix []
+                // For radio buttons we remove the array suffix []
                 $thCheckboxInput.attr('name', field);
             }
 
-            // Prüfen, ob die `row` in der `selected`-Liste ist, und die Checkbox/Radiobutton als "checked" markieren
+            // check whether the `Row` is in the` selected` list and mark the checkbox/radio button as "checked"
             const exists = selected.some(item => item[field] === rowValue);
             if (exists) {
-                $thCheckboxInput.prop('checked', true); // Setze "checked", wenn vorhanden
+                $thCheckboxInput.prop('checked', true); // Set "checked" if available
                 let activeClassName = 'table-active'
                 if (typeof settings.classes === "object" && settings.classes.hasOwnProperty('active')) {
                     activeClassName = settings.classes.active;
@@ -1979,39 +2067,78 @@
         $table.data('bsTable', data);
     }
 
+    /**
+     * Retrieves the closest wrapper element surrounding the specified table element.
+     *
+     * @param {jQuery} $table - A jQuery object representing the table element.
+     * @return {jQuery} A jQuery object representing the closest wrapper element.
+     */
     function getWrapper($table) {
-        return $table.closest(`.${bsTableClasses.wrapper}`);
+        return $($table).closest(`.${bsTableClasses.wrapper}`);
     }
 
+    /**
+     * Retrieves the closest parent element with the class `wrapperResponsive` for the specified table element.
+     *
+     * @param {jQuery} $table The jQuery object representing the table element for which the responsive wrapper is to be found.
+     * @return {jQuery} A jQuery object representing the closest parent element with the `wrapperResponsive` class.
+     */
     function getResponsiveWrapper($table) {
-        return $table.closest(`.${bsTableClasses.wrapperResponsive}`);
+        return $($table).closest(`.${bsTableClasses.wrapperResponsive}`);
     }
 
     function getClosestWrapper($element) {
-        return $element.closest(`.${bsTableClasses.wrapper}`);
+        return $($element).closest(`.${bsTableClasses.wrapper}`);
     }
 
+    /**
+     * Retrieves the bottom container element of the table within its wrapper.
+     *
+     * @param {jQuery} $table - The jQuery object of the table for which the bottom container is retrieved.
+     * @return {jQuery} The jQuery object representing the bottom container element.
+     */
     function getTableBottomContainer($table) {
-        const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
+        const $wrapper = $(getWrapper($table)); // Hole den aktuellen Plugin-Wrapper
         return $wrapper.children(`.${bsTableClasses.bottomContainer}`).first();
     }
 
+    /**
+     * Retrieves the top container element of a table within the provided wrapper.
+     *
+     * @param {jQuery} $table - The jQuery object representing the table for which the top container is to be obtained.
+     * @return {jQuery} - A jQuery object representing the first top container element found within the wrapper.
+     */
     function getTableTopContainer($table) {
-        const $wrapper = getWrapper($table);
+        const $wrapper = $(getWrapper($table));
         return $wrapper.children(`.${bsTableClasses.topContainer}`).first();
     }
 
+    /**
+     * Retrieves the pagination container element within the specified table.
+     *
+     * @param {jQuery} $table - The jQuery object representing the target table.
+     * @param {boolean} top - A boolean indicating whether to retrieve the top pagination container (true)
+     *                        or the bottom pagination container (false).
+     *
+     * @return {jQuery} Returns the jQuery object representing the pagination container element.
+     */
     function getPaginationContainer($table, top) {
         if (top) {
-            return getTableTopContainer($table).find('.' + bsTableClasses.pagination);
+            return $(getTableTopContainer($table)).find('.' + bsTableClasses.pagination);
         } else {
-            return getTableBottomContainer($table).find('.' + bsTableClasses.pagination);
+            return $(getTableBottomContainer($table)).find('.' + bsTableClasses.pagination);
         }
     }
 
 
+    /**
+     * Retrieves the search input element is directly associated with the given table.
+     *
+     * @param {jQuery} $table - The jQuery-wrapped table element for which the search input is to be found.
+     * @return {jQuery} - The jQuery-wrapped search input element if found, or an empty jQuery object if no associated input is found.
+     */
     function getSearchInput($table) {
-        const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
+        const $wrapper = $(getWrapper($table)); // Hole den aktuellen Plugin-Wrapper
 
         // Finde den einzigen Such-Input im Wrapper, aber ignoriere Inputs aus untergeordneten Wrappers
         const $searchInput = $wrapper.find('.' + bsTableClasses.searchInput).filter(function () {
@@ -2022,37 +2149,51 @@
         return $searchInput.length > 0 ? $searchInput : $(); // Fallback: leeres jQuery-Objekt, falls nichts gefunden
     }
 
+    /**
+     * Generates a unique identifier string by appending a randomly generated portion to the given prefix.
+     *
+     * @param {string} [prefix="bs_table_wrapper_"] - The string to prepend to the generated unique ID.
+     * @return {string} A unique identifier string prefixed with the provided or default prefix.
+     */
     function getUniqueId(prefix = "bs_table_wrapper_") {
-
-        const guid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (char) {
-            const random = Math.random() * 16 | 0;
-            const value = char === 'x' ? random : (random & 0x3 | 0x8);
-            return value.toString(16);
-        });
-
-        // Falls Unterstriche statt Minuse gewünscht sind
-        const modifiedGuid = guid.replace(/-/g, '_');
-
-        return prefix + modifiedGuid;
+        const randomId = Math.random().toString(36).substring(2, 10);
+        return prefix + randomId;
     }
 
 
+    /**
+     * Retrieves the overlay element associated with the provided table element.
+     * This method ensures that only the overlay directly belonging to the current
+     * wrapper of the table is returned, ignoring overlays in nested wrappers.
+     *
+     * @param {jQuery} $table - The jQuery object representing the table element for which the overlay is searched.
+     * @return {jQuery} A jQuery object containing the overlay element, or an empty jQuery object if no overlay is found.
+     */
     function getOverlay($table) {
-        const $wrapper = getWrapper($table); // Hole den aktuellen Plugin-Wrapper
+        const $wrapper = $(getWrapper($table)); // get the current plugin wrapper
 
-        // Finde das Overlay im aktuellen Wrapper, ignoriere Overlays in verschachtelten Wrappers
+        // Find the overlay in the current wrapper, ignore overlays in nested wrappers
         const $overlay = $wrapper.find('.' + bsTableClasses.overlay).filter(function () {
-            // Überprüfe, ob dieses Overlay direkt im aktuellen Wrapper liegt
+            // check whether this overlay is located directly in the current wrapper
             return getClosestWrapper($(this))[0] === $wrapper[0];
-        }).first(); // Nur das erste Overlay holen (falls mehrere gefunden werden)
+        }).first(); // only get the first overlay (if several are found)
 
-        return $overlay.length > 0 ? $overlay : $(); // Fallback: leeres jQuery-Objekt, falls kein Overlay gefunden wurde
+        return $overlay.length > 0 ? $overlay : $(); // Fallback: empty jQuery object if no overlay has been found
     }
 
 
-    function handleSortOnTheadTh($th) {
-        const wrapper = getClosestWrapper($th);
-        const $table = getTableByWrapperId(wrapper.attr('id'));
+    /**
+     * Handles the sorting functionality for a table header (`<th>`).
+     * Updates the sort state of the specified header and resets other sortable headers in the table.
+     * Triggers the sorting event and refreshes the table with the new sort order and field.
+     *
+     * @param {jQuery} $thElement - The jQuery object representing the table header element (`<th>`) to sort on.
+     * @return {void} This function does not return a value.
+     */
+    function handleSortOnTheadTh($thElement) {
+        const $th = $($thElement);
+        const wrapper = $(getClosestWrapper($th));
+        const $table = $(getTableByWrapperId(wrapper.attr('id')));
         const settings = getSettings($table);
         const allSortableHeaders = $table.find('thead:first th[data-sortable="true"]')
         const filteredHeaders = allSortableHeaders.not($th);
@@ -2158,6 +2299,12 @@
     }
 
 
+    /**
+     * Retrieves a table element that has a specific data-wrapper attribute matching the provided wrapper ID.
+     *
+     * @param {string} wrapperId - The ID of the wrapper to search for in the data-wrapper attribute of the table.
+     * @return {jQuery} A jQuery object representing the table element with the matching data-wrapper attribute.
+     */
     function getTableByWrapperId(wrapperId) {
         return $(`table[data-wrapper="${wrapperId}"`);
     }
@@ -2182,19 +2329,19 @@
         if (!$checkbox.length) {
             return;
         }
-        const wrapper = getClosestWrapper($checkbox);
-        const table = getTableByWrapperId(wrapper.attr('id'));
+        const $wrapper = $(getClosestWrapper($checkbox));
+        const $table = $(getTableByWrapperId($wrapper.attr('id')));
         const $tr = $checkbox.closest('tr');
         const isChecked = $checkbox.is(':checked');
-        const settings = getSettings(table);
+        const settings = getSettings($table);
         const row = $tr.data('row');
         if (isChecked) {
-            addSelected(table, row);
-            triggerEvent(table, 'check', row, $checkbox);
+            addSelected($table, row);
+            triggerEvent($table, 'check', row, $checkbox);
             $.bsTable.utils.executeFunction(settings.onCheck, row, $checkbox);
         } else {
-            removeSelected(table, row);
-            triggerEvent(table, 'uncheck', row, $checkbox);
+            removeSelected($table, row);
+            triggerEvent($table, 'uncheck', row, $checkbox);
             $.bsTable.utils.executeFunction(settings.onUncheck, row, $checkbox);
         }
         let activeClassName = 'table-active'
@@ -2203,11 +2350,11 @@
         }
         $tr.toggleClass(activeClassName);
 
-        const allCheckboxes = table
-            .children('tbody')
-            .find('.' + bsTableClasses.checkInputBody);
+        const $tbody = $table.children('tbody'); // $table muss ein jQuery-Objekt sein!
+        const $thead = $table.children('thead'); // $table muss ein jQuery-Objekt sein!
+        const allCheckboxes = $($tbody).find(`.${bsTableClasses.checkInputBody}`);
         const allChecked = allCheckboxes.filter(':checked').length === allCheckboxes.length;
-        const headerCheckbox = table.children('thead').find('.' + bsTableClasses.checkInputHeader);
+        const headerCheckbox = $($thead).find(`.${bsTableClasses.checkInputHeader}`);
 
         headerCheckbox.prop('checked', allChecked);
     }
@@ -2216,13 +2363,14 @@
         if (!$checkbox.length) {
             return;
         }
-        const wrapper = getClosestWrapper($checkbox);
-        const table = getTableByWrapperId(wrapper.attr('id'));
+        const wrapper = $(getClosestWrapper($checkbox));
+        const $table = $(getTableByWrapperId(wrapper.attr('id')));
         const $tr = $checkbox.closest('tr');
         const row = $tr.data('row');
-        const settings = getSettings(table);
-        const headerCheckbox = table.children('thead').find(`.${bsTableClasses.checkInputHeader}`);
-        setSelected(table, []);
+        const settings = getSettings($table);
+        const $thead = $($table.children('thead'));
+        const headerCheckbox = $thead.find(`.${bsTableClasses.checkInputHeader}`);
+        setSelected($table, []);
         headerCheckbox.prop('checked', true).prop('disabled', false);
 
         let activeClassName = 'table-active'
@@ -2230,16 +2378,16 @@
             activeClassName = settings.classes.active;
         }
 
-        const allRadios = table.children('tbody').find(`.${bsTableClasses.checkInputBody}`);
+        const allRadios = $($table.children('tbody')).find(`.${bsTableClasses.checkInputBody}`);
         allRadios.each(function (_, el) {
             const radio = $(el);
             if (getClosestWrapper(radio)[0] === wrapper[0]) {
                 const radioTr = radio.closest('tr');
                 radioTr.removeClass(activeClassName);
                 if (radio.is(':checked')) {
-                    addSelected(table, row);
+                    addSelected($table, row);
                     radioTr.addClass(activeClassName);
-                    triggerEvent(table, 'check', radioTr.data('row'), radio);
+                    triggerEvent($table, 'check', radioTr.data('row'), radio);
                     $.bsTable.utils.executeFunction(settings.onCheck, radioTr.data('row'), radio);
                 }
             }
@@ -2250,8 +2398,8 @@
         if (!$checkbox.length) {
             return;
         }
-        const wrapper = getClosestWrapper($checkbox);
-        const table = getTableByWrapperId(wrapper.attr('id'));
+        const wrapper = $(getClosestWrapper($checkbox));
+        const table = $(getTableByWrapperId(wrapper.attr('id')));
         const settings = getSettings(table);
         const isChecked = $checkbox.prop('checked');
         let activeClassName = 'table-active'
@@ -2259,8 +2407,7 @@
             activeClassName = settings.classes.active;
         }
 
-        table
-            .children('tbody')
+        $(table.children('tbody'))
             .find(`.${bsTableClasses.checkInputBody}.bs-table-checkbox`)
             .each(function (_, el) {
                 const radio = $(el);
@@ -2299,15 +2446,14 @@
         if (!$checkbox.length) {
             return;
         }
-        const wrapper = getClosestWrapper($checkbox);
-        const table = getTableByWrapperId(wrapper.attr('id'));
+        const wrapper = $(getClosestWrapper($checkbox));
+        const table = $(getTableByWrapperId(wrapper.attr('id')));
         const settings = getSettings(table);
         let activeClassName = 'table-active'
         if (typeof settings.classes === "object" && settings.classes.hasOwnProperty('active')) {
             activeClassName = settings.classes.active;
         }
-        table
-            .children('tbody')
+        $(table.children('tbody'))
             .find(`.${bsTableClasses.checkInputBody}.bs-table-radio`)
             .each(function (_, el) {
                 const radio = $(el);
@@ -2333,11 +2479,12 @@
 
                 // Stelle sicher, dass nur das äußerste Element Events erhält
                 if ($target.parents('.' + bsTableClasses.wrapper).length > 0) {
+                    // noinspection UnnecessaryReturnStatementJS
                     return; // Ignoriere verschachtelte `bsTableClasses.wrapper`
                 }
 
-                // Events für das äußere `.bsTableClasses.wrapper` registrieren
-                // Je nach Ereignistyp kannst du hier differenzieren, falls nötig.
+                // register events for the outer `.bsTableClasses.wrapper`
+                // Depending on the type of event, you can differentiate here if necessary.
             })
             .on(['click' + namespace, 'change' + namespace, 'touchstart' + namespace, 'mouseenter' + namespace,].join(' '), `.${bsTableClasses.wrapper} [data-child="true"]`, function (e) {
                 e.stopPropagation();
