@@ -32,7 +32,9 @@
                 type: 'checkbox', // checkbox or radio
                 field: 'id', // the value field
                 name: 'btSelectItem', // When Typ Checkbox is, the name is converted to an array
-                clickRowToSelect: true // CheckItem toggle on click row
+                clickRowToSelect: true, // CheckItem toggle on click row
+                align: 'center',
+                valign: 'middle'
             },
             cardView: false,
             showCustomView: false,
@@ -55,6 +57,8 @@
                 toggleOn: 'bi bi-toggle-on',
                 customViewOff: 'bi bi-columns-gap',
                 customViewOn: 'bi bi-table',
+                check: 'bi bi-check-square fs-4 fw-boöd',
+                uncheck: 'bi bi-square fs-4',
             },
             caption: null,
             rowStyle(_row, _index, _$tr) {
@@ -258,6 +262,7 @@
         toolbar: 'bs-table-toolbar', // Toolbar container
         pagination: 'bs-table-pagination', // Wrapper for the pagination controls
         paginationDetails: 'bs-table-pagination-details', // Wrapper for detailed pagination information
+        wrapperSelection: 'bs-table-selection', // Wrapper for detailed pagination information
         checkLabelHeader: 'bs-table-check-label-header', // Checkbox label container in the table header
         checkInputHeader: 'bs-table-check-input-header', // Checkbox input in the table header
         checkInputBody: 'bs-table-check-input-body', // Checkbox input in the table body
@@ -465,12 +470,10 @@
     }
 
     /**
-     * Updates check item settings for the given table instance based on its configuration.
-     * This method determines whether to show check items (checkbox or radio buttons)
-     * and their type by analyzing the table's settings and columns.
+     * Verifies and validates the configuration for check items in the provided table element.
      *
-     * @param {object} $table - The table instance to configure, typically represented as a jQuery object.
-     * @return {void} Does not return a value but modifies the table's data properties based on the "checkItems" configuration.
+     * @param {jQuery} $table The table element wrapped in a jQuery object for which the check items configuration is to be validated.
+     * @return {void} Does not return any value. Updates the table configuration and triggers events based on validation results.
      */
     function checkCheckItemsConfig($table) {
         const settings = getSettings($table);
@@ -536,6 +539,25 @@
                 somethingChanged = true;
             }
         }
+        if (isValid) {
+            if (!settings.checkItemsConfig.hasOwnProperty('align') || !['start','left', 'center', 'end', 'right'].includes(settings.checkItemsConfig.align)) {
+                settings.checkItemsConfig.align = 'center';
+                somethingChanged = true;
+            }
+        }
+        if (isValid) {
+            if (!settings.checkItemsConfig.hasOwnProperty('valign') || !['top', 'middle', 'bottom'].includes(settings.checkItemsConfig.valign)) {
+                settings.checkItemsConfig.valign = 'middle';
+                somethingChanged = true;
+            }
+        }
+        if (isValid) {
+            if (!settings.checkItemsConfig.hasOwnProperty('position') || !['start', 'end'].includes(settings.checkItemsConfig.position)) {
+                settings.checkItemsConfig.position = 'start';
+                somethingChanged = true;
+            }
+        }
+
         if (!isValid && settings.showCheckItems) {
             somethingChanged = true;
             settings.showCheckItems = false;
@@ -1314,7 +1336,8 @@
 
 
             this.buttons($table);
-        }, tableBottomContainer($table) {
+        },
+        tableBottomContainer($table) {
             const $wrapper = getWrapper($table);
             const settings = getSettings($table);
 
@@ -1328,9 +1351,38 @@
                 gapClass = 'gap-2 py-2';
             }
 
-            const template = '' + '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.bottomContainer + '">' + '<div class="d-flex justify-content-between align-items-start ' + flexClass + '">' + '<div class="' + bsTableClasses.paginationDetails + '"></div>' + '<div class="' + bsTableClasses.pagination + ' bottom"></div>' + '</div>' + '</div>';
+            const template = [
+                '<div class="d-flex flex-column ' + gapClass + ' ' + bsTableClasses.bottomContainer + '">',
+                '<div class="d-flex justify-content-between align-items-start ' + flexClass + '">',
+                '<div class="' + bsTableClasses.paginationDetails + '"></div>',
+                '<div class="' + bsTableClasses.pagination + ' bottom"></div>',
+                '</div>',
+                '<div class="' + bsTableClasses.wrapperSelection + '"></div>',
+                '</div>'
+            ].join('');
             $(template).appendTo($wrapper);
-        }, pagination($table, totalRows) {
+        },
+        selectionInputs($table) {
+            const selections = getSelected($table);
+            const settings = getSettings($table);
+
+            const $bottomContainer = getTableBottomContainer($table).find('.' + bsTableClasses.wrapperSelection).empty();
+            // alert($bottomContainer.length);
+            if (showCheckItems($table)) {
+                const checkItem = settings.checkItemsConfig;
+                selections.forEach(row => {
+                    const value = row[checkItem.field];
+                    $('<input>', {
+                        type: 'hidden',
+                        name: `${checkItem.name}`,
+                        value: value,
+                    }).appendTo($bottomContainer);
+                });
+                $table.children('thead').find('.' + bsTableClasses.checkLabelHeader).text(selections.length);
+            }
+
+        },
+        pagination($table, totalRows) {
             // Retrieve table-specific settings for pagination (e.g. page number, page size).
             const settings = getSettings($table);
 
@@ -1480,24 +1532,7 @@
                 this.thead($table);
                 this.tbody($table, currentPageData);
                 this.tfoot($table, currentPageData);
-                if (showCheckItems($table)) {
-                    const checkItem = settings.checkItemsConfig;
-                    const elementsNotInPageData = selected.filter(item => {
-                        return !currentPageData.some(row => row[checkItem.field] === item[checkItem.field]);
-                    });
-                    wrapper.find('.bs-invisible-checked').remove();
-                    elementsNotInPageData.forEach(row => {
-                        const value = row[checkItem.field];
-                        $('<input>', {
-                            class: 'bs-invisible-checked',
-                            type: 'hidden',
-                            name: `${checkItem.name}`,
-                            value: value,
-                        }).appendTo(wrapper);
-                    });
-                }
-
-
+                this.selectionInputs($table);
             }
 
             $table.children('thead').find('.' + bsTableClasses.checkLabelHeader).text(selected.length);
@@ -1590,14 +1625,16 @@
             }
             const $tr = $('<tr></tr>').appendTo($thead);
             if (showHeader) {
-                if (showCheckItems($table)) {
-                    buildCheckboxOrRadio($table, $tr, null);
-                }
+
                 let colIndex = 0;
                 columns.forEach(column => {
                     this.theadTr(column, $tr, colIndex);
                     colIndex++;
                 });
+
+                if (showCheckItems($table)) {
+                    buildCheckboxOrRadio($table, $tr, null);
+                }
 
                 triggerEvent($table, 'post-header', $thead, $table);
                 $.bsTable.utils.executeFunction(settings.onPostHeader, $thead, $table);
@@ -1703,14 +1740,17 @@
                     $tr.data('row', row);
                     $.bsTable.utils.executeFunction(settings.rowStyle, row, trIndex, $tr);
                     if (hasColumns) {
-                        if (showCheckItems($table)) {
-                            buildCheckboxOrRadio($table, $tr, row);
-                        }
+
                         let colIndex = 0;
                         settings.columns.forEach(column => {
                             this.tbodyTd(column, row, $tr, colIndex, inToggleView);
                             colIndex++;
                         });
+                        if (showCheckItems($table)) {
+                            buildCheckItem($table, $tr, row);
+                            // buildCheckboxOrRadio($table, $tr, row);
+
+                        }
                     }
                     trIndex++;
                 })
@@ -1914,6 +1954,55 @@
         return iconMap[sortOrder] || iconMap.default;
     }
 
+    function buildCheckItem($table, $tr, row = null) {
+        const settings = getSettings($table);
+        const selected = getSelected($table);
+        const forHeader = $.bsTable.utils.isValueEmpty(row);
+        const checkItem = settings.checkItemsConfig;
+        let icon = settings.icons.uncheck;
+        let checked = false;
+        if(!forHeader) {
+            checked = selected.some(item => item[checkItem.field] ===  row[checkItem.field]);
+            if(checked) {
+                icon = settings.icons.check;
+            }
+        }
+
+        const classes = [];
+        if(['start', 'left'].includes(checkItem.align)) {
+            classes.push('text-start');
+        } else if(['end', 'right'].includes(checkItem.align)) {
+            classes.push('text-end');
+        } else  {
+            classes.push('text-center');
+        }
+        if(checkItem.valign === 'top') {
+            classes.push('align-top');
+        } else if(checkItem.valign === 'middle') {
+            classes.push('align-middle');
+        } else {
+            classes.push('align-bottom');
+        }
+
+
+        const $thCheckbox = $(forHeader ? '<th></th>' : '<td></td>', {
+            class: classes.join(' '),
+            html: `<i class="bs-table-check-icon ${icon}"></i>`
+        });
+
+        if(forHeader) {
+            $thCheckbox.attr('data-check-item-all',  'false');
+        } else {
+            $thCheckbox.attr('data-check-item', checked ? 'true' : 'false');
+        }
+
+        if(checkItem.position === 'start'){
+            $thCheckbox.prependTo($tr);
+        } else {
+            $thCheckbox.appendTo($tr);
+        }
+
+    }
     function buildCheckboxOrRadio($table, $tr, row = null) {
         const settings = getSettings($table);
         const selected = getSelected($table);
@@ -1922,10 +2011,10 @@
 
 
         const $thCheckbox = $(forHeader ? '<th></th>' : '<td></td>', {
-            class: 'text-center align-middle', 'data-role': 'tableCellCheckbox',
+            class: 'text-center position-relative  align-middle', 'data-role': 'tableCellCheckbox',
         }).appendTo($tr);
 
-
+        // $('<div>', {class: 'position-absolute top-50 start-50 translate-middle', html:'<i class="bi bi-check2 fs-1"></i>'}).appendTo($thCheckbox);
         const inputType = checkItem.type;
         const isCheckbox = inputType === 'checkbox';
         if (forHeader) {
@@ -1941,6 +2030,7 @@
         const $thCheckboxInput = $('<input>', {
             id: getUniqueId(`bs_table_${inputType}_`),
             class: 'form-check-input float-none',
+            // type: 'hidden',
             type: inputType,
         }).appendTo($thCheckboxWrapper);
         $thCheckboxInput.addClass(dataRoleClass);
@@ -1978,12 +2068,15 @@
 
             const exists = selected.some(item => item[checkItem.field] === rowValue);
             if (exists) {
+                $('<i class="'+settings.icons.check+'"></i>').appendTo($thCheckbox);
                 $thCheckboxInput.prop('checked', true); // Set "checked" if available
                 let activeClassName = 'table-active'
                 if (typeof settings.classes === "object" && settings.classes.hasOwnProperty('active')) {
                     activeClassName = settings.classes.active;
                 }
                 $tr.addClass(activeClassName);
+            } else {
+                $('<i class="'+settings.icons.uncheck+'"></i>').appendTo($thCheckbox);
             }
 
         }
@@ -2062,7 +2155,7 @@
 
         // Save the updated data back to the table
         $table.data('bsTable', data);
-        $table.children('thead').find('.' + bsTableClasses.checkLabelHeader).text(data.selected.length);
+        build.selectionInputs($table);
     }
 
     function removeSelected($table, row) {
@@ -2083,7 +2176,27 @@
 
         // Update the table's data
         $table.data('bsTable', data);
-        $table.children('thead').find('.' + bsTableClasses.checkLabelHeader).text(data.selected.length);
+        build.selectionInputs($table);
+    }
+    function removeAllSelected($table) {
+        // Retrieve the table's internal data
+        const data = $table.data('bsTable');
+        const checkItem = data.settings.checkItemsConfig;
+
+        if (data) {
+            if (data.settings.debug) {
+                console.log('removeAllSelected', row);
+            }
+
+            data.selected = [];
+            if (data.settings.debug) {
+                console.log('newSelected', data.selected);
+            }
+        }
+
+        // Update the table's data
+        $table.data('bsTable', data);
+        build.selectionInputs($table);
     }
 
     function setSelected($table, rows) {
@@ -2092,7 +2205,7 @@
             data.selected = rows || [];
         }
         $table.data('bsTable', data);
-        $table.children('thead').find('.' + bsTableClasses.checkLabelHeader).text(data.selected.length);
+        build.selectionInputs($table);
     }
 
     function setResponse($table, response) {
@@ -2427,32 +2540,32 @@
         headerCheckbox.prop('checked', allChecked);
     }
 
-    function handleRadiosByRadioChange($checkbox) {
-        if (!$checkbox.length) {
+    function handleRadiosByRadioChange($td) {
+        if (!$td.length) {
             return;
         }
-        const wrapper = $(getClosestWrapper($checkbox));
+        const wrapper = $(getClosestWrapper($td));
         const $table = $(getTableByWrapperId(wrapper.attr('id')));
-        const $tr = $checkbox.closest('tr');
+        const $tr = $td.closest('tr');
         const row = $tr.data('row');
         const settings = getSettings($table);
         const $thead = $($table.children('thead'));
-        const headerCheckbox = $thead.find(`.${bsTableClasses.checkInputHeader}`);
-        setSelected($table, []);
-        headerCheckbox.prop('checked', true).prop('disabled', false);
+        // const headerCheckbox = $thead.find(`.${bsTableClasses.checkInputHeader}`);
+        removeAllSelected($table);
+        // headerCheckbox.prop('checked', true).prop('disabled', false);
 
         let activeClassName = 'table-active'
         if (typeof settings.classes === "object" && settings.classes.hasOwnProperty('active')) {
             activeClassName = settings.classes.active;
         }
 
-        const allRadios = $($table.children('tbody')).find(`.${bsTableClasses.checkInputBody}`);
+        const allRadios = $($table.children('tbody')).find(`[data-check-item]`);
         allRadios.each(function (_, el) {
             const radio = $(el);
             if (getClosestWrapper(radio)[0] === wrapper[0]) {
                 const radioTr = radio.closest('tr');
                 radioTr.removeClass(activeClassName);
-                if (radio.is(':checked')) {
+                if (radio.attr('[data-check-item]') === 'true') {
                     addSelected($table, row);
                     radioTr.addClass(activeClassName);
                     triggerEvent($table, 'check', radioTr.data('row'), radio);
@@ -2558,7 +2671,15 @@
                 e.stopPropagation();
                 e.stopImmediatePropagation();
             })
-            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr[data-index] > td`, function (e) {
+            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr[data-index] > td:not([data-check-item])`, function (e) {
+                // Überprüfen, ob das Ziel ein Link oder ein Button ist
+                if (
+                    e.target.tagName === 'A' || $(e.target).closest('a').length > 0 ||
+                    e.target.tagName === 'BUTTON' || $(e.target).closest('button').length > 0
+                ) {
+                    return; // Verlasse die Funktion, wenn ein Link oder Button angeklickt wurde
+                }
+
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 const $td = $(e.currentTarget);
@@ -2575,15 +2696,45 @@
                     handleUncheckRadios($checkbox);
                 }
             })
-            .on('change' + namespace, `.${bsTableClasses.wrapper} tbody td:first-child .${bsTableClasses.checkInputBody}`, function (e) {
+            // .on('change' + namespace, `.${bsTableClasses.wrapper} tbody td:first-child .${bsTableClasses.checkInputBody}`, function (e) {
+            //     e.stopPropagation();
+            //     e.stopImmediatePropagation();
+            //     const $checkbox = $(e.currentTarget);
+            //     const type = $checkbox.attr('type');
+            //     if (type === 'radio') {
+            //         handleRadiosByRadioChange($checkbox);
+            //     } else {
+            //         handleCheckboxChange($checkbox);
+            //     }
+            // })
+            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody td[data-check-item]`, function (e) {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                const $checkbox = $(e.currentTarget);
-                const type = $checkbox.attr('type');
+                const $td = $(e.currentTarget);
+                const $table = $td.closest('table');
+                const settings = getSettings($table);
+                // const checkedBefore = $td.attr('data-check-item') === 'true';
+                // const checkedAfter = !checkedBefore;
+                // const icon = $td.find('i.bs-table-check-icon');
+                // const $tr = $td.closest('tr');
+                // const row = $tr.data('row');
+                // $td.attr('data-check-item', checkedAfter? 'true' : 'false');
+                // $tr.toggleClass('table-active', checkedAfter);
+                // icon.toggleClass(settings.icons.check + ' ' + settings.icons.uncheck);
+                // if(checkedAfter) {
+                //     if(settings.showCheckItems.type === 'radio') {
+                //         removeAllSelected($table);
+                //     }
+                //     addSelected($table, row);
+                // } else {
+                //     removeSelected($table, row);
+                // }
+                // const $checkbox = $(e.currentTarget);
+                const type = settings.showCheckItems.type;
                 if (type === 'radio') {
-                    handleRadiosByRadioChange($checkbox);
+                    handleRadiosByRadioChange($td);
                 } else {
-                    handleCheckboxChange($checkbox);
+                    handleCheckboxChange($td);
                 }
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} thead th[data-sortable="true"]`, function (e) {
