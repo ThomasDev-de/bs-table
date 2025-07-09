@@ -28,7 +28,7 @@
             showToggle: false,
             showColumns: false,
             showCheckItems: false,
-            checkItemConfig: {
+            checkItemsConfig: {
                 type: 'checkbox', // checkbox or radio
                 field: 'id', // the value field
                 name: 'btSelectItem', // When Typ Checkbox is, the name is converted to an array
@@ -43,9 +43,6 @@
             data: null,
             columns: [],
             minimumCountColumns: 1,
-            idField: undefined,
-            selectItemName: 'btSelectItem',
-            clickToSelect: false,
             icons: {
                 sortAsc: 'bi bi-caret-down-fill text-primary',
                 sortDesc: 'bi bi-caret-up-fill text-primary',
@@ -59,6 +56,7 @@
                 customViewOff: 'bi bi-columns-gap',
                 customViewOn: 'bi bi-table',
             },
+            caption: null,
             rowStyle(_row, _index, _$tr) {
             },
             queryParams(_params) {
@@ -67,8 +65,9 @@
             responseHandler(_res) {
                 return _res;
             },
-            caption: null,
             onAll(_eventName, ..._args) {
+            },
+            onError(_message) {
             },
             onLoadSuccess() {
             },
@@ -115,8 +114,6 @@
         columnDefaults: {
             class: undefined,
             field: undefined,
-            checkbox: false,
-            radio: false,
             sortable: false,
             visible: true,
             width: undefined,
@@ -282,7 +279,6 @@
             setToggleCustomView($table, customView);
             setToggleView($table, cardView);
             setSettings($table, newSettings);
-            // checkForCheckItems($table);
             refresh($table);
         },
         /**
@@ -305,10 +301,8 @@
             const settings = getSettings($table);
             const hiddenColumns = [];
             settings.columns.forEach(column => {
-                if (column.checkbox !== true && column.radio !== true) {
-                    if (column.visible === false) {
-                        hiddenColumns.push(column.field);
-                    }
+                if (column.visible === false) {
+                    hiddenColumns.push(column.field);
                 }
             });
             return hiddenColumns;
@@ -323,10 +317,8 @@
             const settings = getSettings($table);
             const visibleColumns = [];
             settings.columns.forEach(column => {
-                if (column.checkbox !== true && column.radio !== true) {
-                    if (column.visible === true) {
-                        visibleColumns.push(column.field);
-                    }
+                if (column.visible === true) {
+                    visibleColumns.push(column.field);
                 }
             });
             return visibleColumns;
@@ -457,12 +449,7 @@
             settings: settings,
             toggleView: settings.cardView === true,
             toggleCustomView: settings.customView === true,
-            checkItem: {
-                show: false,
-                type: undefined,
-                field: settings.idField || undefined,
-                name: settings.selectItemName || undefined
-            },
+            showCheckItems: false,
             response: [],
             selected: []
         };
@@ -485,26 +472,83 @@
      * @param {object} $table - The table instance to configure, typically represented as a jQuery object.
      * @return {void} Does not return a value but modifies the table's data properties based on the "checkItems" configuration.
      */
-    function calculateCheckItem($table) {
+    function checkCheckItemsConfig($table) {
         const settings = getSettings($table);
-        const isCheckbox = settings.columns.some(column => column.checkbox === true);
-        const isRadio = settings.columns.some(column => column.radio === true);
 
-        const showCheckItem =
-            settings.selectItemName && // idField is set
-            settings.idField && // idField is set
-            settings.columns.length && // Columns are defined
-            (isCheckbox || isRadio) && // At least one column has a checkbox or radio
-            settings.columns.some(column => column.field === settings.idField); // idField exists in the columns
+        let isValid = settings.showCheckItems === true;
+        let isCheckbox = false
+        let somethingChanged = false;
+        if (isValid) {
+            isValid = typeof settings.checkItemsConfig === 'object';
+        }
+        if (isValid) {
+            isValid = ['checkbox', 'radio'].includes(settings.checkItemsConfig.type);
+            if (isValid) {
+                isCheckbox = settings.checkItemsConfig.type === 'checkbox';
+            } else {
+                const error = [
+                    `Checkitems cannot be displayed.`,
+                    `Invalid check item type: ${settings.checkItemsConfig.type}.`,
+                    'Valid values are "checkbox" and "radio".'
+                ].join(' ')
+                triggerEvent($table, 'error', error);
+                $.bsTable.utils.executeFunction(settings.onError, error)
+            }
+        }
+        if (isValid) {
+            isValid = settings.checkItemsConfig.hasOwnProperty('name') && typeof settings.checkItemsConfig.name === 'string';
+            const endsWithBraces = settings.checkItemsConfig.name.endsWith('[]');
+            if (isCheckbox && !endsWithBraces) {
+                somethingChanged = true;
+                settings.checkItemsConfig.name = settings.checkItemsConfig.name + '[]';
+            }
+            if (!isCheckbox && endsWithBraces) {
+                somethingChanged = true;
+                settings.checkItemsConfig.name = settings.checkItemsConfig.name.slice(0, -2);
+            }
+            if (!isValid) {
+                const error = [
+                    `Checkitems cannot be displayed.`,
+                    `Missing or invalid type for check item name: ${settings.checkItemsConfig.name}.`,
+                    'Check item names must be a string.'
+                ].join(' ')
+                triggerEvent($table, 'error', error);
+                $.bsTable.utils.executeFunction(settings.onError, error)
+            }
+        }
+        if (isValid) {
+            isValid = settings.checkItemsConfig.hasOwnProperty('field') && typeof settings.checkItemsConfig.name === 'string';
+            if (isValid) {
+                isValid = settings.columns.some(column => column.field === settings.checkItemsConfig.field);
+            } else {
+                const error = [
+                    `Checkitems cannot be displayed.`,
+                    `Missing or invalid type for check item field: ${settings.checkItemsConfig.field}.`,
+                    'The field must be found in one of the settings.collumns.'
+                ].join(' ')
+                triggerEvent($table, 'error', error);
+                $.bsTable.utils.executeFunction(settings.onError, error)
+            }
+        }
+        if (isValid) {
+            if (!settings.checkItemsConfig.hasOwnProperty('clickRowToSelect') || typeof settings.checkItemsConfig.clickRowToSelect !== 'boolean') {
+                settings.checkItemsConfig.clickRowToSelect = false;
+                somethingChanged = true;
+            }
+        }
+        if (!isValid && settings.showCheckItems) {
+            somethingChanged = true;
+            settings.showCheckItems = false;
+        }
+
 
         const data = $table.data('bsTable');
-        const checkItem = {
-            show: showCheckItem,
-            type: showCheckItem ? (isCheckbox ? 'checkbox' : 'radio') : undefined,
-            field: showCheckItem ? settings.idField : undefined,
-            name: showCheckItem ? settings.selectItemName : undefined,
-        };
-        setCheckItem($table, checkItem);
+
+        if (somethingChanged) {
+            data.settings = settings;
+        }
+        data.showCheckItems = isValid;
+        $table.data('bsTable', data);
     }
 
     $.fn.bsTable = function (optionsOrMethod, ...args) {
@@ -1028,17 +1072,23 @@
 
             const wrapperId = getUniqueId();
             const $wrapper = $('<div>', {
-                class: bsTableClasses.wrapper + ' position-relative', id: wrapperId,
+                class: bsTableClasses.wrapper + ' position-relative',
+                id: wrapperId,
             }).insertAfter($table);
+
+            const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
+            console.log('GGGGGGGGG', getClosestWrapper($wrapper));
+            $wrapper.attr('data-child', isChild);
+
             const $wrapperResponsive = $('<div>', {
                 class: 'table-responsive ' + bsTableClasses.wrapperResponsive,
             }).appendTo($wrapper);
 
-            const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
-            $wrapper.attr('data-child', isChild);
+
             $table.attr('data-wrapper', wrapperId);
 
             $table.appendTo($wrapperResponsive);
+
             setCaption($table, settings.caption);
 
             this.tableTopContainer($table);
@@ -1155,11 +1205,6 @@
             // Add a checkbox for each column
             settings.columns.forEach((column) => {
                 const isVisible = column.visible !== false;
-
-                // Überspringen von Spalten mit `checkbox` oder `radio`
-                if (column.checkbox || column.radio) {
-                    return;
-                }
                 const uniqueId = getUniqueId('bs_table_column_visibility_');
                 // Erstelle ein Menü-Item mit Checkbox
                 const $menuItem = $('<div>', {'class': 'dropdown-item px-3'}).append($('<div>', {'class': 'form-check d-flex align-items-center'}).append($('<input>', {
@@ -1404,8 +1449,8 @@
                 }
             }
         }, table($table) {
-            calculateCheckItem($table);
-            const checkItem = getCheckItem($table);
+            checkCheckItemsConfig($table);
+
             const settings = getSettings($table);
             const selected = getSelected($table);
             if (settings.debug) {
@@ -1435,9 +1480,10 @@
                 this.thead($table);
                 this.tbody($table, currentPageData);
                 this.tfoot($table, currentPageData);
-                if (checkItem.show) {
+                if (showCheckItems($table)) {
+                    const checkItem = settings.checkItemsConfig;
                     const elementsNotInPageData = selected.filter(item => {
-                        return !currentPageData.some(row => row[checkItem.field] === item[checkItem.field]); // Vergleich basierend auf 'id' oder einem eindeutigen Attribut
+                        return !currentPageData.some(row => row[checkItem.field] === item[checkItem.field]);
                     });
                     wrapper.find('.bs-invisible-checked').remove();
                     elementsNotInPageData.forEach(row => {
@@ -1445,7 +1491,7 @@
                         $('<input>', {
                             class: 'bs-invisible-checked',
                             type: 'hidden',
-                            name: `${checkItem.name}[]`,
+                            name: `${checkItem.name}`,
                             value: value,
                         }).appendTo(wrapper);
                     });
@@ -1544,14 +1590,11 @@
             }
             const $tr = $('<tr></tr>').appendTo($thead);
             if (showHeader) {
-                if (showCheckItem($table)) {
+                if (showCheckItems($table)) {
                     buildCheckboxOrRadio($table, $tr, null);
                 }
                 let colIndex = 0;
                 columns.forEach(column => {
-                    if (column.checkbox === true || column.radio === true) {
-                        return;
-                    }
                     this.theadTr(column, $tr, colIndex);
                     colIndex++;
                 });
@@ -1559,7 +1602,8 @@
                 triggerEvent($table, 'post-header', $thead, $table);
                 $.bsTable.utils.executeFunction(settings.onPostHeader, $thead, $table);
             }
-        }, theadTr(column, $tr, colIndex) {
+        },
+        theadTr(column, $tr, colIndex) {
             const $table = $tr.closest('table');
             const settings = getSettings($table);
             const isSortable = column.sortable === true;
@@ -1611,7 +1655,8 @@
             if (classList.length) {
                 $th.addClass(classList.join(' '));
             }
-        }, tbody($table, rows) {
+        },
+        tbody($table, rows) {
             const settings = getSettings($table);
             triggerEvent($table, 'pre-body', rows, $table);
             $.bsTable.utils.executeFunction(settings.onPreBody, rows, $table);
@@ -1658,14 +1703,11 @@
                     $tr.data('row', row);
                     $.bsTable.utils.executeFunction(settings.rowStyle, row, trIndex, $tr);
                     if (hasColumns) {
-                        if (showCheckItem($table)) {
+                        if (showCheckItems($table)) {
                             buildCheckboxOrRadio($table, $tr, row);
                         }
                         let colIndex = 0;
                         settings.columns.forEach(column => {
-                            if (column.checkbox === true || column.radio === true) {
-                                return;
-                            }
                             this.tbodyTd(column, row, $tr, colIndex, inToggleView);
                             colIndex++;
                         });
@@ -1796,15 +1838,12 @@
             const $tr = $('<tr></tr>').appendTo($tfoot);
 
             if (showFooter) {
-                if (showCheckItem($table)) {
+                if (showCheckItems($table)) {
                     $('<th></th>').appendTo($tr);
                 }
 
                 let colIndex = 0;
                 columns.forEach(column => {
-                    if (column.checkbox === true || column.radio === true) {
-                        return;
-                    }
                     this.tfootTr(column, $tr, colIndex, data);
                     colIndex++;
                 })
@@ -1813,7 +1852,8 @@
                 triggerEvent($table, 'post-footer', $tfoot, $table);
                 $.bsTable.utils.executeFunction(settings.onPostFooter, $tfoot, $table);
             }
-        }, tfootTr(column, $tr, colIndex, data) {
+        },
+        tfootTr(column, $tr, colIndex, data) {
             // Formatierer-Wert prüfen und zuweisen
             const formatterValue = $.bsTable.utils.executeFunction(column.footerFormatter, data);
             const value = !$.bsTable.utils.isValueEmpty(formatterValue) ? formatterValue : '';
@@ -1878,7 +1918,7 @@
         const settings = getSettings($table);
         const selected = getSelected($table);
         const forHeader = $.bsTable.utils.isValueEmpty(row);
-        const checkItem = getCheckItem($table);
+        const checkItem = settings.checkItemsConfig;
 
 
         const $thCheckbox = $(forHeader ? '<th></th>' : '<td></td>', {
@@ -1886,7 +1926,7 @@
         }).appendTo($tr);
 
 
-        const inputType = getCheckItemType($table);
+        const inputType = checkItem.type;
         const isCheckbox = inputType === 'checkbox';
         if (forHeader) {
             $thCheckbox.css('width', '50px');
@@ -1931,20 +1971,12 @@
         // add specific attributes when there are line data
         if (!forHeader) {
             const field = checkItem.field;
-            const rowValue = row[field] ?? null;
+            const rowValue = row[checkItem.field] ?? null;
 
-            $thCheckboxInput.attr('value', row[field] ?? null);
-            // behavior dependent on the type
-            if (isCheckbox) {
-                // For checkboxes, the name remains an array
-                $thCheckboxInput.attr('name', `${checkItem.name}[]`);
-            } else {
-                // For radio buttons we remove the array suffix []
-                $thCheckboxInput.attr('name', field);
-            }
+            $thCheckboxInput.attr('value', row[checkItem.field] ?? null);
+            $thCheckboxInput.attr('name', `${checkItem.name}`);
 
-            // check whether the `Row` is in the` selected` list and mark the checkbox/radio button as "checked"
-            const exists = selected.some(item => item[field] === rowValue);
+            const exists = selected.some(item => item[checkItem.field] === rowValue);
             if (exists) {
                 $thCheckboxInput.prop('checked', true); // Set "checked" if available
                 let activeClassName = 'table-active'
@@ -1963,17 +1995,12 @@
         const settings = getSettings($table);
 
         if (!settings.columns || !settings.columns.length) {
-            return 0; // Keine Spalten
+            return 0;
         }
 
-        // Filtert sichtbare Spalten, wenn onlyVisible true ist, sonst zählt alle.
         let columnCount = settings.columns.filter(column => !onlyVisible || column.visible !== false).length;
 
-        // Prüft, ob mindestens eine Spalte checkbox: true oder radio: true ist.
-        const hasCheckboxOrRadio = showCheckItem($table);
-
-        // Wenn eine solche Spalte existiert, rechne 1 hinzu
-        if (hasCheckboxOrRadio) {
+        if (showCheckItems($table)) {
             columnCount += 1;
         }
 
@@ -1996,12 +2023,10 @@
         return $table.data('bsTable').response || {rows: [], total: 0};
     }
 
-    function showCheckItem($table) {
-        return $table.data('bsTable').checkItem.show;
+    function showCheckItems($table) {
+        return $($table).data('bsTable').showCheckItems;
     }
-    function getCheckItem($table) {
-        return $table.data('bsTable').checkItem;
-    }
+
     function setCheckItem($table, checkItem) {
         // Access the table's data
         const data = $table.data('bsTable');
@@ -2009,9 +2034,6 @@
         $table.data('bsTable', data);
     }
 
-    function getCheckItemType($table) {
-        return $table.data('bsTable').checkItem.type;
-    }
 
     function getSelected($table) {
         return $table.data('bsTable').selected || []
@@ -2020,13 +2042,11 @@
     function addSelected($table, selected) {
         // Access the table's data
         const data = $table.data('bsTable');
-        const checkItem = data.checkItem;
-        // Get the unique field identifier (e.g., idField)
-        const idField =checkItem.field;
+        const checkItemsConfig = data.settings.checkItemsConfig;
 
         if (data) {
             // Check if the selected item already exists in 'data.selected'
-            const exists = data.selected.some(item => item[idField] === selected[idField]);
+            const exists = data.selected.some(item => item[checkItemsConfig.field] === selected[checkItemsConfig.field]);
 
             // Add the item only if it doesn't exist
             if (!exists) {
@@ -2048,15 +2068,14 @@
     function removeSelected($table, row) {
         // Retrieve the table's internal data
         const data = $table.data('bsTable');
-        const checkItem = data.checkItem;
-        const idField = checkItem.field; // The field used as a unique identifier
+        const checkItem = data.settings.checkItemsConfig;
 
         if (data) {
             if (data.settings.debug) {
                 console.log('removeSelected', row);
             }
-            // Filter out the item that matches the given row's idField value
-            data.selected = data.selected.filter(item => item[idField] !== row[idField]);
+
+            data.selected = data.selected.filter(item => item[checkItem.field] !== row[checkItem.field]);
             if (data.settings.debug) {
                 console.log('newSelected', data.selected);
             }
@@ -2129,8 +2148,17 @@
         return $($table).closest(`.${bsTableClasses.wrapperResponsive}`);
     }
 
+    /**
+     * Retrieves the closest element with a specific class designated as a wrapper
+     * for a given element, starting from its parent's closest matching ancestor.
+     *
+     * @param {HTMLElement|jQuery} $element - The element for which the closest wrapper should be found.
+     *                                        This can be a native DOM element or a jQuery object.
+     * @return {jQuery} The closest wrapper element as a jQuery object, or an empty jQuery object
+     *                  if no matching wrapper is found.
+     */
     function getClosestWrapper($element) {
-        return $($element).closest(`.${bsTableClasses.wrapper}`);
+        return $($element).parent().closest(`.${bsTableClasses.wrapper}`);
     }
 
     /**
@@ -2307,11 +2335,9 @@
         $.bsTable.utils.executeFunction(settings.onClickRow, row, $tr, column.field);
         triggerEvent($table, 'click-cell', column.field, value, row, $td);
         $.bsTable.utils.executeFunction(settings.onClickCell, column.field, value, row, $td);
-        if (settings.clickToSelect === true) {
-            if (showCheckItem($table)) {
-                const checkbox = $tr.find('td[data-role="tableCellCheckbox"]:first input');
-                checkbox.prop('checked', !checkbox.prop('checked')).trigger('change' + namespace);
-            }
+        if (showCheckItems($table) && settings.checkItemsConfig.clickRowToSelect === true) {
+            const checkbox = $tr.find('td[data-role="tableCellCheckbox"]:first input');
+            checkbox.prop('checked', !checkbox.prop('checked')).trigger('change' + namespace);
         }
     }
 

@@ -331,10 +331,17 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 sortName: 'option',
                 data: data,
                 idField: 'option',
+                showCheckItems:true,
+                onError(error){
+                    alert(error);
+                },
+                checkItemsConfig: {
+                    type: 'checkbox',
+                    field: 'option',
+                    name: 'options',
+                    clickRowToSelect: true
+                },
                 columns: [
-                    {
-                        checkbox: true,
-                    },
                     {
                         class: 'text-nowrap pe-3',
                         field: 'option',
