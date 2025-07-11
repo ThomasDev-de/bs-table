@@ -225,9 +225,7 @@
 
                 if (typeof functionOrName === 'function') {
                     func = functionOrName;
-                }
-
-                else if (typeof functionOrName === 'string') {
+                } else if (typeof functionOrName === 'string') {
                     if (typeof window !== 'undefined' && typeof window[functionOrName] === 'function') {
                         func = window[functionOrName];
                     } else {
@@ -1879,14 +1877,16 @@
 
             if (settings.pagination) {
                 this.paginationDetails($table, totalRows);
-                const $paginationHtml = $(this.pagination($table, totalRows));
-                const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
-                const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
-                if (showOnTop) {
-                    $topPaginationContainer.append($paginationHtml.clone());
-                }
-                if (showOnBottom) {
-                    $bottomPaginationContainer.append($paginationHtml.clone());
+                if (pageSize !== 0) {
+                    const $paginationHtml = $(this.pagination($table, totalRows));
+                    const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
+                    const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
+                    if (showOnTop) {
+                        $topPaginationContainer.append($paginationHtml.clone());
+                    }
+                    if (showOnBottom) {
+                        $bottomPaginationContainer.append($paginationHtml.clone());
+                    }
                 }
             }
         },
