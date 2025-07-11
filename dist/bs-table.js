@@ -1421,7 +1421,7 @@
             if (settings.showButtonColumnsChooser === true) {
                 const dropDown = this.dropdownColumns($table, smallBtnClass);
                 if (dropDown) {
-                    $(dropDown).appendTo($btnContainer);
+                    $(dropDown).prependTo($btnContainer);
                 }
             }
         },
