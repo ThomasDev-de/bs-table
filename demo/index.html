@@ -54,7 +54,7 @@
 <body>
 
 
-<nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top">
+<nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top opacity-75">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">$.fn.bsTable</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
@@ -169,7 +169,7 @@
 
         $.bsTable.setDefaults({
             classes: {
-                table: 'align-top table-bordered mb-0',
+                table: 'align-top table-bordered',
                 thead: 'sticky-top',
                 tbody: 'table-group-divider',
                 tfoot: 'sticky-bottom',
@@ -177,12 +177,12 @@
             },
             // height: 800,
             search: true,
-            showRefresh: true,
-            showColumns: true,
-            showCustomView: true,
+            showButtonRefresh: true,
+            showButtonCustomView: true,
+            showButtonToggleColumns: true, // Button
+            showButtonColumnsChooser: true,
             showFooter: false,
             paginationVAlign: 'both',
-            showToggle: true,
             pagination: true,
             onCustomView(rows, $td) {
                 const ret = ['<div class=""><div class="grid mx-auto">'];
@@ -332,18 +332,19 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 data: data,
                 idField: 'option',
                 showCheckItems:true,
+                pageSize: 4,
                 onError(error){
                     alert(error);
                 },
                 checkItemsConfig: {
                     type: 'checkbox',
                     field: 'option',
-                    name: 'options',
-                    clickRowToSelect: true
+                    clickRowToSelect: true,
+                    position:'end',
                 },
                 columns: [
                     {
-                        class: 'text-nowrap pe-3',
+                        class: 'text-nowrap',
                         field: 'option',
                         title: 'Option',
                         sortable: true,
