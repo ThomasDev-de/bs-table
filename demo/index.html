@@ -53,7 +53,6 @@
 </head>
 <body>
 
-
 <nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top opacity-75">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">$.fn.bsTable</a>
@@ -112,11 +111,7 @@
             in the
             `bsTable` lifecycle:</p>
     </div>
-    <!--    <div id="table-container" class="table-responsive">-->
-
-
     <table id="table_table_options"></table>
-    <!--    </div>-->
     <table id="table_column_options"></table>
     <table id="table_table_events" data-toolbar="#table_events_toolbar"></table>
 </div>
@@ -170,12 +165,10 @@
         $.bsTable.setDefaults({
             classes: {
                 table: 'align-top table-bordered',
-                thead: 'sticky-top',
+                // thead: 'sticky-top',
                 tbody: 'table-group-divider',
-                tfoot: 'sticky-bottom',
                 active: 'table-active'
             },
-            // height: 800,
             search: true,
             showButtonRefresh: true,
             showButtonCustomView: true,
@@ -332,15 +325,14 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 data: data,
                 idField: 'option',
                 showCheckItems:true,
-                pageSize: 4,
+                showFooter: true,
                 onError(error){
                     alert(error);
                 },
                 checkItemsConfig: {
                     type: 'checkbox',
                     field: 'option',
-                    clickRowToSelect: true,
-                    position:'end',
+                    clickRowToSelect: true
                 },
                 columns: [
                     {

@@ -1,13 +1,22 @@
 (function ($) {
     "use strict";
 
-    /* jshint unused:false */
     $.bsTable = {
-        version: '1.0.2', globalEventsBound: false, setDefaults(options) {
+        version: '1.0.2',
+        globalEventsBound: false,
+        setDefaults(options) {
             this.defaults = $.extend(true, {}, this.defaults, options || {});
-        }, getDefaults() {
+        },
+        getDefaults() {
             return this.defaults;
-        }, defaults: {
+        },
+        getColumnDefaults() {
+            return this.columnDefaults;
+        },
+        getCheckItemsConfigDefaults() {
+            return this.checkItemsConfigDefaults;
+        },
+        defaults: {
             height: undefined,
             ajaxOptions: undefined,
             classes: 'table',
@@ -28,14 +37,7 @@
             showButtonToggleColumns: false,
             showButtonColumnsChooser: false,
             showCheckItems: false,
-            checkItemsConfig: {
-                type: 'checkbox', // checkbox or radio
-                field: 'id', // the value field
-                name: 'btSelectItem', // When Typ Checkbox is, the name is converted to an array
-                clickRowToSelect: true, // CheckItem toggle on click row
-                align: 'center',
-                valign: 'middle'
-            },
+            checkItemsConfig: {},
             cardView: false,
             showButtonCustomView: false,
             customView: false,
@@ -131,7 +133,22 @@
             footerFormatter: undefined,
             events: undefined
         },
+        checkItemsConfigDefaults: {
+            type: 'checkbox',          // Type: 'checkbox' or 'radio'
+            name: 'btSelectItem',      // Base name for the input(s)
+            field: 'checkItems',       // Associated field in table data
+            clickRowToSelect: false,   // Whether clicking the row also selects the item
+            align: 'center',           // Horizontal alignment for cell
+            valign: 'middle',          // Vertical alignment for cell
+            position: 'start',         // Position of the check items in the row ('start' or 'end')
+            width: 35,                 // A fixed width
+            visible: true              // Show or hide the Checkitem
+        },
         utils: {
+            getUniqueId(prefix = "bs_table_wrapper_") {
+                const randomId = Math.random().toString(36).substring(2, 10);
+                return prefix + randomId;
+            },
             sortArrayByField(data, field, order = "ASC") {
                 // Sicherstellen, dass die Reihenfolge korrekt ist
                 const direction = order.toUpperCase() === "DESC" ? -1 : 1;
@@ -200,20 +217,17 @@
             },
             executeFunction(functionOrName, ...args) {
                 if (!functionOrName) {
-                    console.error('Kein Funktionsname oder Funktionsreferenz übergeben!');
+                    console.warn('No functional name or functional reference!');
                     return undefined;
                 }
 
                 let func;
 
-                // 1. Direkte Funktionsreferenz: Überprüfen, ob ein Funktionsobjekt übergeben wurde
                 if (typeof functionOrName === 'function') {
                     func = functionOrName;
                 }
 
-                // 2. Funktionsname im String-Format: Prüfen im globalen Kontext (`window`)
                 else if (typeof functionOrName === 'string') {
-                    // a. Versuche, die Funktion direkt über ihren Namen im globalen Kontext zu finden
                     if (typeof window !== 'undefined' && typeof window[functionOrName] === 'function') {
                         func = window[functionOrName];
                     } else {
@@ -222,17 +236,15 @@
                     }
                 }
 
-                // 3. Wenn keine Funktion gefunden wurde, Fehler zurückgeben
                 if (!func) {
                     console.error(`Ungültige Funktion oder Name: "${functionOrName}"`);
                     return undefined;
                 }
 
-                // 4. Die Funktion sicher ausführen und die Rückgabe ausdrücken
                 return func(...args);
             },
             isValueEmpty(value) {
-                if (value === null || value === undefined) {
+                if (value === null || value === 'undefined') {
                     return true; // Null or undefined
                 }
                 if (Array.isArray(value)) {
@@ -245,10 +257,40 @@
             }
         }
     };
-    /* jshint unused:true */
 
+    /**
+     * Namespace representing the base selector for Bootstrap's table component.
+     *
+     * The `.bs.table` namespace is typically used to tie JavaScript behavior to
+     * Bootstrap-styled table elements in a consistent manner. It can act as a
+     * unique identifier for applying styles, interactions, or functionality to
+     * tables following the Bootstrap framework conventions.
+     *
+     * This namespace can serve as a convention for segregating table-related
+     * functionalities to avoid conflicts and maintain readability in your code.
+     */
     const namespace = '.bs.table';
 
+    /**
+     * An object containing CSS class names used for styling and structuring different elements of a Bootstrap-based table component.
+     *
+     * @property {string} wrapper - Overall wrapper class for the table component.
+     * @property {string} wrapperResponsive - Class used for the responsive wrapper variant.
+     * @property {string} overlay - Class applied to the visual loading overlay or spinner.
+     * @property {string} topContainer - Class for the container located above the table.
+     * @property {string} bottomContainer - Class for the container located below the table.
+     * @property {string} search - Class used for wrapping the search field.
+     * @property {string} searchInput - Class applied to the search input field.
+     * @property {string} buttons - Class for the container holding buttons in the top container.
+     * @property {string} btnRefresh - Class used for the refresh button.
+     * @property {string} btnToggle - Class for the button that toggles the table view.
+     * @property {string} btnCustomView - Class used for the button enabling a custom view mode.
+     * @property {string} toolbar - Class for the toolbar container associated with the table.
+     * @property {string} pagination - Class used for the container wrapping pagination controls.
+     * @property {string} paginationDetails - Class wrapping detailed pagination information.
+     * @property {string} wrapperSelection - Class for the wrapper that manages selection states or related elements.
+     * @property {string} checkIcon - Class used for the check icon.
+     */
     const bsTableClasses = {
         wrapper: 'bs-table', // Overall wrapper class
         wrapperResponsive: 'bs-table-responsive', // Responsive wrapper variant
@@ -265,12 +307,12 @@
         pagination: 'bs-table-pagination', // Wrapper for the pagination controls
         paginationDetails: 'bs-table-pagination-details', // Wrapper for detailed pagination information
         wrapperSelection: 'bs-table-selection', // Wrapper for detailed pagination information
-        checkLabelHeader: 'bs-table-check-label-header', // Checkbox label container in the table header
-        checkInputHeader: 'bs-table-check-input-header', // Checkbox input in the table header
-        checkInputBody: 'bs-table-check-input-body', // Checkbox input in the table body
         checkIcon: 'bs-table-check-icon'
     };
 
+    /**
+     * Object containing methods for table manipulation and state management.
+     */
     const methods = {
         /**
          * Refreshes the table options and settings based on the provided configuration.
@@ -303,7 +345,7 @@
         /**
          * Retrieves the list of hidden columns for the provided table.
          *
-         * @param {Object} $table - The table element or table configuration object.
+         * @param {jQuery} $table - The table element or table configuration object.
          * @return {Array<string>} An array of field names representing the hidden columns.
          */
         getHiddenColumns($table) {
@@ -319,7 +361,7 @@
         /**
          * Retrieves the visible columns for the provided table.
          *
-         * @param {Object} $table - The table element or reference for which visible columns need to be determined.
+         * @param {jQuery} $table - The table element or reference for which visible columns need to be determined.
          * @return {Array<string>} A list of field names for the columns that are marked as visible and are neither checkboxes nor radio buttons.
          */
         getVisibleColumns($table) {
@@ -403,194 +445,14 @@
     }
 
     /**
-     * Initializes a table with the given settings or method, ensuring proper configuration
-     * for options, columns, and height.
-     * If the table has already been initialized,
-     * it updates the options if provided.
+     * A jQuery plugin function which extends jQuery's prototype to provide functionality for initializing
+     * and interacting with a Bootstrap-based table. This method can be used for creating or handling
+     * a table styled in accordance with Bootstrap design guidelines. Specific behaviors or enhancements
+     * for the table can be applied through the options provided.
      *
-     * @param {jQuery} $table - The jQuery table element to be initialized.
-     * @param {Object|string} optionsOrMethod - The configuration options for the table
-     *                                           or the method to invoke on the table.
-     * @return {void} This method does not return anything.
-     * It sets up the table
-     *                element, configures its settings, and manages its initialization state.
+     * @function
+     * @name $.fn.bsTable
      */
-    function initTable($table, optionsOrMethod) {
-
-        // Check if the table is already initialized
-        if ($($table).data('bsTable')) {
-            // If the table has already been initialized and settings have been passed anyway,
-            // refresh the settings
-            if (typeof optionsOrMethod === 'object') {
-                methods.refreshOptions($table, optionsOrMethod);
-            }
-            return;
-        }
-        // If global events have not been initialized, do so once
-        if (!$.bsTable.globalEventsBound) {
-            registerGlobalTableEvents(); // Globale Initialisierung binden (nur einmalig)
-        }
-        const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
-        const settings = $.extend(true, {}, $.bsTable.getDefaults(), $($table).data() || {}, options || {});
-
-        // Make sure that all columns are fully populated
-        const columns = [];
-        if (settings.columns && Array.isArray(settings.columns)) {
-            settings.columns.forEach(column => {
-                if (typeof column === 'object') {
-                    columns.push($.extend(true, {}, $.bsTable.columnDefaults, column || {}));
-                }
-            })
-        }
-
-        // refresh the columns
-        settings.columns = columns;
-
-        // handle table height
-        const height = settings.height || $($table).data('height') || parseInt($($table).css('height'), 10);
-        if (!isNaN(height) && height !== 0) {
-            settings.height = height; // Apply a valid amount
-        } else {
-            settings.height = undefined; // Ignore invalid values (NaN, 0)
-        }
-
-        const bsTable = {
-            settings: settings,
-            toggleView: settings.cardView === true,
-            toggleCustomView: settings.customView === true,
-            response: [],
-            selected: []
-        };
-
-        // Initialize the table with data
-        $($table).data('bsTable', bsTable);
-
-        checkCheckItemsConfig($table);
-
-        // Create Structure Elements of the Table
-        build.structure($table);
-
-        // Update table (e.g. load or render data)
-        refresh($table);
-    }
-
-    /**
-     * Validates and configures the "check items" (checkboxes/radios) for the given table based on settings.
-     * Ensures that the configuration is well-formed, contains all required fields, and meets type/format expectations.
-     * If validation fails at any step, it disables the check items in the settings and triggers error handling.
-     *
-     * @param {jQuery} $table - The table jQuery object whose settings will be verified and (if necessary) adjusted.
-     */
-    function checkCheckItemsConfig($table) {
-        // Retrieve current table settings
-        const settings = getSettings($table);
-
-        // Proceed only if "showCheckItems" is enabled; otherwise, clear config and exit
-        if (settings.showCheckItems !== true) {
-            settings.checkItemsConfig = {};
-            setSettings($table, settings);
-            return;
-        }
-
-        // Define default configuration for check items
-        const defaultCheckItemsConfig = {
-            type: 'checkbox',          // Type: 'checkbox' or 'radio'
-            name: 'btSelectItem',      // Base name for the input(s)
-            field: 'checkItems',       // Associated field in table data
-            clickRowToSelect: false,   // Whether clicking the row also selects the item
-            align: 'center',           // Horizontal alignment for cell
-            valign: 'middle',          // Vertical alignment for cell
-            position: 'start',          // Position of the check items in the row ('start' or 'end')
-            width: 35,
-        };
-
-        // Merge user configuration with defaults, ensuring deep copy
-        const userConfig = $.extend(true, {}, defaultCheckItemsConfig, settings.checkItemsConfig || {});
-        let isValid = true;
-        let isCheckbox = false;
-
-        // Step 1: Validate "type"
-        if (isValid) {
-            isValid = ['checkbox', 'radio'].includes(userConfig.type);
-            if (isValid) {
-                isCheckbox = userConfig.type === 'checkbox';
-            } else {
-                // If invalid, fallback to checkbox by default
-                isCheckbox = true;
-                userConfig.type = 'checkbox';
-            }
-        }
-
-        // Step 2: Validate "name" field existence and adjust format depending on input type
-        if (isValid) {
-            isValid = typeof userConfig.name === 'string';
-            if (isValid) {
-                const endsWithBraces = userConfig.name.endsWith('[]');
-                if (isCheckbox && !endsWithBraces) {
-                    // For checkboxes, ensure name is in array format
-                    userConfig.name = userConfig.name + '[]';
-                }
-                if (!isCheckbox && endsWithBraces) {
-                    // For radio, remove "[]" at the end
-                    userConfig.name = userConfig.name.slice(0, -2);
-                }
-            } else {
-                // Error when name is missing or invalid
-                const error = [
-                    `Checkitems cannot be displayed.`,
-                    `Missing or invalid type for check item name: ${userConfig.name}.`,
-                    'Check item names must be a string.'
-                ].join(' ');
-                triggerEvent($table, 'error', error);
-                $.bsTable.utils.executeFunction(settings.onError, error)
-            }
-        }
-
-        // Step 3: Validate presence of referenced field in settings.columns
-        if (isValid) {
-            isValid = typeof userConfig.name === 'string' && settings.columns.some(column => column.field === userConfig.field);
-            if (!isValid) {
-                const error = [
-                    `Checkitems cannot be displayed.`,
-                    `Missing or invalid type for check item field: ${userConfig.field}.`,
-                    'The field must be found in one of the settings.collumns.'
-                ].join(' ');
-                triggerEvent($table, 'error', error);
-                $.bsTable.utils.executeFunction(settings.onError, error)
-            }
-        }
-
-        // Step 4: Ensure boolean value for "clickRowToSelect"
-        if (isValid && typeof userConfig.clickRowToSelect !== 'boolean') {
-            userConfig.clickRowToSelect = false;
-        }
-
-        // Step 5: Validate allowed values for "align", default to 'center' if invalid
-        if (isValid && !['start', 'left', 'center', 'end', 'right'].includes(userConfig.align)) {
-            userConfig.align = 'center';
-        }
-
-        // Step 6: Validate allowed values for "valign", default to 'middle' if invalid
-        if (isValid && !['top', 'middle', 'bottom'].includes(userConfig.valign)) {
-            userConfig.valign = 'middle';
-        }
-
-        // Step 7: Validate allowed values for "position", default to 'start' if invalid
-        if (isValid && !['start', 'end'].includes(userConfig.position)) {
-            userConfig.position = 'start';
-        }
-
-        // If any step failed, reset configuration and disable check items
-        if (!isValid) {
-            userConfig = {};
-            settings.showCheckItems = false;
-        }
-
-        // Apply updated configuration to table settings and persist them
-        settings.checkItemsConfig = userConfig;
-        setSettings($table, settings);
-    }
-
     $.fn.bsTable = function (optionsOrMethod, ...args) {
         if ($(this).length === 0) {
             return $(this); // No element selected
@@ -610,6 +472,9 @@
         // If a method is specified, we'll run it here
         if (typeof optionsOrMethod === 'string') {
             switch (optionsOrMethod) {
+                case 'getVersion': {
+                    return $.bsTable.version;
+                }
                 case 'getData' : {
                     return getResponse($table).rows;
                 }
@@ -697,19 +562,207 @@
 
 
     /**
-     * Sets the caption of a given table element. Based on the input provided,
-     * it updates the caption text and optionally applies classes or additional behavior.
+     * Initializes a table with the given settings or method, ensuring proper configuration
+     * for options, columns, and height.
+     * If the table has already been initialized,
+     * it updates the options if provided.
      *
-     * If the provided input is empty, the method removes the caption entirely.
-     * The caption can be customized via a string or an object containing text and additional properties.
+     * @param {jQuery} $table - The jQuery table element to be initialized.
+     * @param {Object|string} optionsOrMethod - The configuration options for the table
+     *                                           or the method to invoke on the table.
+     * @return {void} This method does not return anything.
+     * It sets up the table
+     *                element, configures its settings, and manages its initialization state.
+     */
+    function initTable($table, optionsOrMethod) {
+
+        // Check if the table is already initialized
+        if ($($table).data('bsTable')) {
+            // If the table has already been initialized and settings have been passed anyway,
+            // refresh the settings
+            if (typeof optionsOrMethod === 'object') {
+                methods.refreshOptions($table, optionsOrMethod);
+            }
+            return;
+        }
+        // If global events have not been initialized, do so once
+        if (!$.bsTable.globalEventsBound) {
+            registerGlobalTableEvents(); // Globale Initialisierung binden (nur einmalig)
+        }
+        const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
+        const settings = $.extend(true, {}, $.bsTable.getDefaults(), $($table).data() || {}, options || {});
+
+        // Make sure that all columns are fully populated
+        const columns = [];
+        if (settings.columns && Array.isArray(settings.columns)) {
+            settings.columns.forEach(column => {
+                if (typeof column === 'object') {
+                    columns.push($.extend(true, {}, $.bsTable.getColumnDefaults(), column || {}));
+                }
+            })
+        }
+
+        // refresh the columns
+        settings.columns = columns;
+
+        // handle table height
+        const height = settings.height || $($table).data('height') || parseInt($($table).css('height'), 10);
+        if (!isNaN(height) && height !== 0) {
+            settings.height = height; // Apply a valid amount
+        } else {
+            settings.height = undefined; // Ignore invalid values (NaN, 0)
+        }
+
+        const bsTable = {
+            settings: settings,
+            toggleView: settings.cardView === true,
+            toggleCustomView: settings.customView === true,
+            response: [],
+            selected: []
+        };
+
+        // Initialize the table with data
+        $($table).data('bsTable', bsTable);
+
+        // Clean the CheckitemConfig
+        checkCheckItemsConfig($table);
+
+        // Create Structure Elements of the Table
+        build.structure($table);
+
+        // Update table (e.g. load or render data)
+        refresh($table);
+    }
+
+    /**
+     * Validates and configures the "check items" (checkboxes/radios) for the given table based on settings.
+     * Ensures that the configuration is well-formed, contains all required fields, and meets type/format expectations.
+     * If validation fails at any step, it disables the check items in the settings and triggers error handling.
      *
-     * @param {jQuery} $table - The table element (wrapped in jQuery) to which the caption should be applied.
-     * @param {string|Object} stringOrObject - The caption content or configuration.
-     *     If a string is provided, it sets the caption text.
-     *     If an object is provided, it may contain the following properties:
-     *       - text: {string} The text to be displayed in the caption.
-     *       - onTop: {boolean} Whether to add the "caption-top" class to the caption for styling.
-     * @return {void} Does not return a value. Applies changes directly to the DOM element.
+     * @param {jQuery} $table - The table jQuery object whose settings will be verified and (if necessary) adjusted.
+     */
+    function checkCheckItemsConfig($table) {
+        // Retrieve current table settings
+        const settings = getSettings($table);
+
+        // Proceed only if "showCheckItems" is enabled; otherwise, clear config and exit
+        if (settings.showCheckItems !== true) {
+            settings.checkItemsConfig = {};
+            setSettings($table, settings);
+            return;
+        }
+
+        // Define default configuration for check items
+        const defaultCheckItemsConfig = $.bsTable.getCheckItemsConfigDefaults();
+
+        // Merge user configuration with defaults, ensuring deep copy
+        const userConfig = $.extend(true, {}, defaultCheckItemsConfig, settings.checkItemsConfig || {});
+        let isValid = true;
+        let isCheckbox = false;
+
+        // Step 1: Validate "type"
+        if (isValid) {
+            isValid = ['checkbox', 'radio'].includes(userConfig.type);
+            if (isValid) {
+                isCheckbox = userConfig.type === 'checkbox';
+            } else {
+                // If invalid, fallback to checkbox by default
+                isCheckbox = true;
+                userConfig.type = 'checkbox';
+            }
+        }
+
+        /**
+         * Step 2: Validate "name" field existence and adjust format depending on input type
+         */
+        if (isValid) {
+            isValid = typeof userConfig.name === 'string';
+            if (isValid) {
+                const endsWithBraces = userConfig.name.endsWith('[]');
+                if (isCheckbox && !endsWithBraces) {
+                    // For checkboxes, ensure name is in array format
+                    userConfig.name = userConfig.name + '[]';
+                }
+                if (!isCheckbox && endsWithBraces) {
+                    // For radio, remove "[]" at the end
+                    userConfig.name = userConfig.name.slice(0, -2);
+                }
+            } else {
+                // Error when name is missing or invalid
+                const error = [
+                    `Checkitems cannot be displayed.`,
+                    `Missing or invalid type for check item name: ${userConfig.name}.`,
+                    'Check item names must be a string.'
+                ].join(' ');
+                triggerEvent($table, 'error', error);
+                $.bsTable.utils.executeFunction(settings.onError, error)
+            }
+        }
+
+        // Step 3: Validate presence of referenced field in settings.columns
+        if (isValid) {
+            isValid = typeof userConfig.name === 'string' && settings.columns.some(column => column.field === userConfig.field);
+            if (!isValid) {
+                const error = [
+                    `Checkitems cannot be displayed.`,
+                    `Missing or invalid type for check item field: ${userConfig.field}.`,
+                    'The field must be found in one of the settings.collumns.'
+                ].join(' ');
+                triggerEvent($table, 'error', error);
+                $.bsTable.utils.executeFunction(settings.onError, error)
+            }
+        }
+
+        // Step 4: Ensure boolean value for "clickRowToSelect"
+        if (isValid && typeof userConfig.clickRowToSelect !== 'boolean') {
+            userConfig.clickRowToSelect = false;
+        }
+
+        // Step 5: Ensure boolean value for "visible"
+        if (isValid && typeof userConfig.visible !== 'boolean') {
+            userConfig.visible = false;
+        }
+
+        // Step 6: Validate allowed values for "align", default to 'center' if invalid
+        if (isValid && !['start', 'left', 'center', 'end', 'right'].includes(userConfig.align)) {
+            userConfig.align = 'center';
+        }
+
+        // Step 7: Validate allowed values for "valign", default to 'middle' if invalid
+        if (isValid && !['top', 'middle', 'bottom'].includes(userConfig.valign)) {
+            userConfig.valign = 'middle';
+        }
+
+        // Step 8: Validate allowed values for "position", default to 'start' if invalid
+        if (isValid && !['start', 'end'].includes(userConfig.position)) {
+            userConfig.position = 'start';
+        }
+
+        // If any step failed, reset configuration and disable check items
+        if (!isValid) {
+            settings.showCheckItems = false;
+        }
+
+        // Apply updated configuration to table settings and persist them
+        settings.checkItemsConfig = userConfig;
+        setSettings($table, settings);
+    }
+
+    /**
+     * Sets or updates the caption of a given HTML table element.
+     *
+     * This method allows updating or removing an existing table caption. A string or an object can be
+     * provided to specify the caption text and other attributes such as positioning or custom classes.
+     *
+     * @param {jQuery} $table The table element for which the caption should be set or updated.
+     * @param {string|object|null} stringOrObject Specifies the caption text or an object containing caption settings.
+     *        If a string is provided, it is set as the caption text. If an object is provided, it can include the following properties:
+     *        - `text` (string): The caption text.
+     *        - `onTop` (boolean): If true, adds a class to position the caption on top of the table.
+     *        - Additional table-specific class configuration may come from settings.
+     *        If null or an empty value is provided, the caption is removed.
+     *
+     * @return {void} This function does not return a value. It directly modifies the DOM element's caption.
      */
     function setCaption($table, stringOrObject) {
         const settings = getSettings($table);
@@ -827,12 +880,25 @@
             })
     }
 
+    /**
+     * Toggles the view state of a given table by updating its view settings and re-rendering the table.
+     *
+     * @param {jQuery} $table The table object whose view state needs to be toggled.
+     * @return {void} This function does not return a value.
+     */
     function toggleView($table) {
         setToggleView($table, !getToggleView($table));
         setToggleCustomView($table, false);
         build.table($table);
     }
 
+    /**
+     * Toggles the custom view state for a given table element.
+     * If the custom view is currently active, it will deactivate it and vice versa.
+     *
+     * @param {jQuery} $table The table element for which the custom view state is toggled.
+     * @return {void} This function does not return a value.
+     */
     function toggleCustomView($table) {
         setToggleCustomView($table, !getToggleCustomView($table));
         setToggleView($table, false);
@@ -840,13 +906,12 @@
     }
 
     /**
-     * Fetches data for a table, handling local or remote data sources,
-     * sorting, pagination, and optional search functionality.
+     * Fetches data for the specified table element and processes it based on the provided settings.
+     * It supports local data, remote API calls, pagination, sorting, and search functionality.
      *
-     * @param {jQuery} $jqTable The jQuery object representing the table for which data is being fetched.
-     * @param {boolean} [triggerRefresh=false] Indicates whether a "refresh" event should be triggered during data fetching.
-     * @return {Promise} A promise that resolves when the data has been successfully fetched and processed,
-     *                   or rejects if there is an error during the data fetching process.
+     * @param {jQuery} $jqTable - The jQuery object representing the table element for which data is being fetched.
+     * @param {boolean} [triggerRefresh=false] - Indicates whether a refresh event should be triggered after the data is fetched.
+     * @return {Promise<void>} A Promise that resolves when the data fetching and processing is completed or rejects with an error if fetching fails.
      */
     function fetchData($jqTable, triggerRefresh = false) {
         const $table = $($jqTable);
@@ -1108,19 +1173,32 @@
         });
     }
 
+    /**
+     * The `build` object contains methods responsible for managing the structure, layout, interactive components,
+     * and visibility of elements for a dynamic, table-based user interface. These methods enable responsive
+     * design and provide features such as pagination, visibility toggles, and column controls.
+     *
+     * This object expects jQuery to be used for DOM manipulation and interactions.
+     */
     const build = {
-        structure($table) {
+        /**
+         * Configures the structure and layout for the provided table element, applying a wrapper and responsive design.
+         *
+         * @param {jQuery} $tableElement The jQuery object representing the target table element.
+         * @return {void} This method does not return any value.
+         */
+        structure($tableElement) {
+            const $table = $($tableElement);
             $table.empty();
             const settings = getSettings($table);
 
-            const wrapperId = getUniqueId();
+            const wrapperId = $.bsTable.utils.getUniqueId();
             const $wrapper = $('<div>', {
                 class: bsTableClasses.wrapper + ' position-relative',
                 id: wrapperId,
             }).insertAfter($table);
 
-            const isChild = getClosestWrapper($wrapper).length > 0 ? 'true' : 'false';
-            console.log('GGGGGGGGG', getClosestWrapper($wrapper));
+            const isChild = $(getClosestWrapper($wrapper)).length > 0 ? 'true' : 'false';
             $wrapper.attr('data-child', isChild);
 
             const $wrapperResponsive = $('<div>', {
@@ -1141,7 +1219,14 @@
             $('<tbody></tbody>').appendTo($table);
             $('<tfoot></tfoot>').appendTo($table);
         },
-        dropdownPageList($table) {
+        /**
+         * Creates a dropdown menu for selecting the number of rows to display in a table's pagination.
+         *
+         * @param {jQuery} $tableElement - The jQuery-wrapped table element for which the dropdown should be created.
+         * @return {jQuery} - A jQuery-wrapped HTML element containing the dropdown for page size selection.
+         */
+        dropdownPageList($tableElement) {
+            const $table = $($tableElement);
             const settings = getSettings($table);
             const response = getResponse($table);
             const totalRows = response.total || (response.rows ? response.rows.length : 0);
@@ -1187,14 +1272,23 @@
 
             $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
             return $dropdownWrapper;
-        }, dropdownColumns($table, smallBtnClass) {
+        },
+        /**
+         * Generates a dropdown menu for controlling column visibility in a table.
+         * The dropdown contains checkboxes for each column, allowing users to toggle columns' visibility.
+         *
+         * @param {jQuery} $table The table element for which the dropdown will control column visibility.
+         * @param {string} smallBtnClass Additional CSS class to apply to the dropdown toggle button for appearance purposes.
+         * @return {jQuery|null} A jQuery representation of the dropdown menu wrapper if columns are available, or null if no columns exist.
+         */
+        dropdownColumns($table, smallBtnClass) {
             const settings = getSettings($table);
 
             if (!settings.columns || !settings.columns.length) {
                 return null; // Keine Spalten vorhanden
             }
 
-            const disabledClass = getToggleCustomView($table) ? 'disabled' : '';
+            // const disabledClass = getToggleCustomView($table) ? 'disabled' : '';
 
             // Haupt-Wrapper des Dropdowns
             const $dropdownWrapper = $('<div>', {
@@ -1248,7 +1342,7 @@
             // Add a checkbox for each column
             settings.columns.forEach((column) => {
                 const isVisible = column.visible !== false;
-                const uniqueId = getUniqueId('bs_table_column_visibility_');
+                const uniqueId = $.bsTable.utils.getUniqueId('bs_table_column_visibility_');
                 // Erstelle ein Menü-Item mit Checkbox
                 const $menuItem = $('<div>', {'class': 'dropdown-item px-3'}).append($('<div>', {'class': 'form-check d-flex align-items-center'}).append($('<input>', {
                     'class': 'form-check-input me-2', // Abstand zur Checkbox hinzufügen
@@ -1288,7 +1382,15 @@
 
             $dropdownWrapper.append($dropdownToggle, $dropdownMenu);
             return $dropdownWrapper;
-        }, buttons($table) {
+        },
+        /**
+         * Generates and appends action buttons to the table's button container based on the current settings.
+         *
+         * @param {jQuery} $tableElement - A jQuery object representing the table element.
+         * @return {void} This function does not return a value.
+         */
+        buttons($tableElement) {
+            const $table = $($tableElement);
             const $wrapper = $(getWrapper($table));
             const settings = getSettings($table);
             const $btnContainer = $wrapper.find(`.${bsTableClasses.buttons}:first`).empty();
@@ -1317,9 +1419,19 @@
             }
 
             if (settings.showButtonColumnsChooser === true) {
-                this.dropdownColumns($table, smallBtnClass).prependTo($btnContainer);
+                const dropDown = this.dropdownColumns($table, smallBtnClass);
+                if (dropDown) {
+                    $(dropDown).appendTo($btnContainer);
+                }
             }
-        }, tableTopContainer($table) {
+        },
+        /**
+         * Creates and configures the top container of a table, including elements such as toolbar, search functionality, pagination, and other UI components.
+         *
+         * @param {jQuery} $table - A jQuery object representing the target table element for which the top container is created.
+         * @return {void} This method does not return a value, but modifies the DOM structure to include the generated top container and its components.
+         */
+        tableTopContainer($table) {
             const $wrapper = getWrapper($table);
             const settings = getSettings($table);
 
@@ -1358,6 +1470,12 @@
 
             this.buttons($table);
         },
+        /**
+         * Generates and appends a table bottom container with pagination and additional UI elements to the specified table.
+         *
+         * @param {jQuery} $table - A jQuery object representing the table for which the bottom container is being created.
+         * @return {void} This method does not return a value.
+         */
         tableBottomContainer($table) {
             const $wrapper = getWrapper($table);
             const settings = getSettings($table);
@@ -1383,6 +1501,13 @@
             ].join('');
             $(template).appendTo($wrapper);
         },
+        /**
+         * Generates and appends hidden input elements for selected rows to the specified table's bottom container.
+         * The hidden inputs are created based on table settings and selections, and are used to manage selected data.
+         *
+         * @param {jQuery} $table The table element for which the hidden inputs are created. This can be a jQuery-wrapped object or a native HTML element.
+         * @return {void} Does not return a value.
+         */
         hiddenSelectedInputs($table) {
             const selections = getSelected($table);
             const settings = getSettings($table);
@@ -1409,10 +1534,11 @@
          * based on the current selection states of its rows. Also updates the state
          * and icon of the "select all" (header) checkbox/radio in the table header.
          *
-         * @param {jQuery} $table - The jQuery object representing the table element whose check items need to be updated.
+         * @param {jQuery} $tableElement - The jQuery object representing the table element whose check items need to be updated.
          * @return {void} No return value. Updates the table's DOM directly.
          */
-        updateCheckItemsActive($table) {
+        updateCheckItemsActive($tableElement) {
+            const $table = $($tableElement);
             const settings = getSettings($table);
 
             // Stop if check items are not enabled in the settings.
@@ -1425,6 +1551,7 @@
             // Select the relevant tbody and thead elements from the current table.
             const $tbody = $($table.children('tbody'));
             const $thead = $($table.children('thead'));
+            const $tfoot = $($table.children('tfoot'));
 
             // Gather the current selection and the rows to be displayed.
             const selectedRows = getSelected($table);
@@ -1499,21 +1626,35 @@
 
             // Find the header <th> responsible for select-all functionality and update its attribute.
             const $headerTh = $thead.find('th[data-check-item-all]').first();
+            const $footerTh = $tfoot.find('th[data-check-item-all]').first();
             $headerTh.attr('data-check-item-all', markHeaderChecked ? 'true' : 'false');
+            $footerTh.attr('data-check-item-all', markHeaderChecked ? 'true' : 'false');
 
             // Update the select-all icon in the header cell.
             const $headerIcon = $headerTh.find('.' + bsTableClasses.checkIcon);
+            const $footerIcon = $footerTh.find('.' + bsTableClasses.checkIcon);
 
             // Remove all potential check/uncheck-all classes.
             [settings.icons.checkAll, settings.icons.uncheckAll].forEach(iconSet =>
-                iconSet.split(/\s+/).forEach(cls =>
-                    $headerIcon.removeClass(cls)
+                iconSet.split(/\s+/).forEach(cls => {
+                        $headerIcon.removeClass(cls)
+                        $footerIcon.removeClass(cls)
+                    }
                 )
             );
             // Add the correct class for the header icon depending on the aggregate checked state.
             $headerIcon.addClass(markHeaderChecked ? settings.icons.checkAll : settings.icons.uncheckAll);
+            $footerIcon.addClass(markHeaderChecked ? settings.icons.checkAll : settings.icons.uncheckAll);
         },
-        pagination($table, totalRows) {
+        /**
+         * Generates a pagination navigation element for a given table based on total rows and settings.
+         *
+         * @param {jQuery} $tableElement - A jQuery object representing the table for which pagination is being created.
+         * @param {number} totalRows - The total number of rows in the table that requires pagination.
+         * @return {jQuery} Returns a jQuery object representing the generated pagination navigation element.
+         */
+        pagination($tableElement, totalRows) {
+            const $table = $($tableElement);
             // Retrieve table-specific settings for pagination (e.g. page number, page size).
             const settings = getSettings($table);
 
@@ -1594,9 +1735,19 @@
 
             // Return the completed pagination wrapper to be inserted into the DOM.
             return $paginationWrapper;
-        }, paginationDetails($table, totalRows) {
+        },
+        /**
+         * Generates and updates the pagination details for a given table. Calculates the rows being displayed
+         * based on the current pagination settings and updates the UI accordingly to show relevant details such
+         * as current page, total rows, and available page size options.
+         *
+         * @param {jQuery} $table The jQuery object representing the table for which pagination details should be updated.
+         * @param {number} totalRows The total number of rows available in the table data.
+         * @return {void} This method does not return a value. It modifies the DOM to reflect updated pagination details.
+         */
+        paginationDetails($table, totalRows) {
             const settings = getSettings($table);
-            const wrapper = getClosestWrapper($table);
+            const wrapper = $(getClosestWrapper($table));
 
             // Paginierung prüfen und Berechnungen entsprechend anpassen
             const pageSize = settings.pagination === false ? totalRows : (settings.pageSize || totalRows);
@@ -1608,7 +1759,7 @@
 
             // Textanzeige: "Showing x to y of total rows"
             const text = $.bsTable.utils.executeFunction(settings.formatShowingRows, startRow, endRow, totalRows);
-            const dropdown = build.dropdownPageList($table);
+            const dropdown = $(build.dropdownPageList($table));
             const $paginationText = $('<div>', {
                 class: 'd-flex align-items-center', html: `<div class="me-3">${text}</div>`,
             })
@@ -1632,13 +1783,22 @@
                 }
             }
         },
-        table($table) {
+        /**
+         * Renders a table with the specified settings, including updating its structure, styling, pagination,
+         * and other elements such as buttons and search functionality. This function also processes responses
+         * and ensures appropriate classes and styles are applied to the table for consistency.
+         *
+         * @param {jQuery} $tableElement The table object to be rendered. It should include settings, data,
+         *                        and configuration properties required for rendering.
+         * @return {void} Doesn't return a value. This method directly modifies the table and its associated DOM elements.
+         */
+        table($tableElement) {
+            const $table = $($tableElement);
             const settings = getSettings($table);
-            const selected = getSelected($table);
             if (settings.debug) {
                 console.groupCollapsed("Render Table");
             }
-            if (typeof settings.height !== undefined) {
+            if (typeof settings.height !== 'undefined') {
                 $(getResponsiveWrapper($table)).css('max-height', settings.height);
             }
             const wrapper = $(getClosestWrapper($table));
@@ -1719,7 +1879,7 @@
 
             if (settings.pagination) {
                 this.paginationDetails($table, totalRows);
-                const $paginationHtml = this.pagination($table, totalRows);
+                const $paginationHtml = $(this.pagination($table, totalRows));
                 const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
                 const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
                 if (showOnTop) {
@@ -1730,7 +1890,15 @@
                 }
             }
         },
-        thead($table) {
+        /**
+         * Builds or updates the `<thead>` element of a table based on the given table's settings and configuration.
+         * This includes setting up header classes, handling visibility, and populating the header row with columns if applicable.
+         *
+         * @param {jQuery} $tableElement - The jQuery object representing the table element whose `<thead>` needs to be processed.
+         * @return {void} - This method does not return a value.
+         */
+        thead($tableElement) {
+            const $table = $($tableElement);
             const settings = getSettings($table);
             const columns = settings.columns || [];
             const showHeader = columns.length && settings.showHeader === true && !getToggleView($table) && !getToggleCustomView($table);
@@ -1746,11 +1914,11 @@
                     }
                 });
             }
-            if (typeof settings.height !== undefined) {
+            if (typeof settings.height !== 'undefined') {
                 headerClasses.push('sticky-top');
             }
 
-            const $thead = $table.children('thead').empty().addClass(headerClasses.join(' '));
+            const $thead = $($table.children('thead')).empty().addClass(headerClasses.join(' '));
             if (showHeader) {
                 $thead.removeClass('d-none');
             }
@@ -1771,8 +1939,17 @@
                 $.bsTable.utils.executeFunction(settings.onPostHeader, $thead, $table);
             }
         },
+        /**
+         * Generates a table header (`<th>`) element for a given column and appends it to the specified table row (`<tr>`).
+         * Handles sortable functionality, alignment, visibility, and customizable column styles.
+         *
+         * @param {Object} column - The column configuration object, containing details like field name, title, width, visibility, and alignment.
+         * @param {jQuery} $tr - The jQuery object representing the table row (`<tr>`) where the header cell should be added.
+         * @param {number} colIndex - The index of the column in the table, used to uniquely identify the header cell.
+         * @return {void}
+         */
         theadTr(column, $tr, colIndex) {
-            const $table = $tr.closest('table');
+            const $table = $($tr).closest('table');
             const settings = getSettings($table);
             const isSortable = column.sortable === true;
             const order = column.field === settings.sortName ? settings.sortOrder ?? '' : '';
@@ -1824,14 +2001,21 @@
                 $th.addClass(classList.join(' '));
             }
         },
-        tbody($table, rows) {
+        /**
+         * Updates the tbody of the specified table with the provided rows.
+         *
+         * @param {jQuery} $tableElement - The jQuery object representing the table whose tbody needs to be updated.
+         * @param {Array} rows - An array of data rows to be rendered in the table's tbody.
+         * @return {void} - This method does not return a value.
+         */
+        tbody($tableElement, rows) {
+            const $table = $($tableElement);
             const settings = getSettings($table);
             const selected = getSelected($table);
             triggerEvent($table, 'pre-body', rows, $table);
             $.bsTable.utils.executeFunction(settings.onPreBody, rows, $table);
             const hasColumns = settings.columns && settings.columns.length;
-            const columns = hasColumns ? settings.columns : [];
-            const $tbody = $table.children('tbody').empty();
+            const $tbody = $($table.children('tbody')).empty();
             const inToggleView = getToggleView($table);
             const inToggleCustomView = getToggleCustomView($table);
             const hasResponse = rows && rows.length > 0;
@@ -1896,9 +2080,20 @@
             triggerEvent($table, 'post-body', rows, $table);
             $.bsTable.utils.executeFunction(settings.onPostBody, rows, $table);
         },
+        /**
+         * Creates and appends a table cell (`td`) to the provided table row (`tr`) while applying cell-specific properties and formatting.
+         * This method also handles alignment, visibility, event bindings, and dynamically generates the cell's content based on provided data and configuration.
+         *
+         * @param {Object} column - The configuration object for the column, containing properties like field, class, align, valign, visible, width, formatter, and events.
+         * @param {Object} row - The data object representing the current row.
+         * @param {jQuery} $tr - The jQuery object for the table row (`tr`) where the `td` will be appended.
+         * @param {number} colIndex - The index of the column in the table.
+         * @param {boolean} inToggleView - Indicates whether the table is in toggle view mode, affecting cell width adjustments.
+         * @return {void} This method does not return a value.
+         */
         tbodyTd(column, row, $tr, colIndex, inToggleView) {
             if (column.field) {
-                const trIndex = $tr.data('index');
+                const trIndex = $($tr).data('index');
                 let classList = [];
                 if (column.class) {
                     column.class.split(' ').forEach(className => {
@@ -1977,7 +2172,15 @@
                 }
             }
         },
-        tfoot($table, data) {
+        /**
+         * Generates and manages the table footer (tfoot) for the given table based on its settings and data.
+         *
+         * @param {jQuery} $tableElement - The table element to which the tfoot will be applied and updated.
+         * @param {Array} data - The table data used to populate the tfoot if necessary.
+         * @return {void}
+         */
+        tfoot($tableElement, data) {
+            const $table = $($tableElement);
             const settings = getSettings($table);
             const columns = settings.columns || [];
             const showFooter = columns.length && settings.showFooter === true && !getToggleView($table) && !getToggleCustomView($table);
@@ -1995,11 +2198,11 @@
                 })
             }
 
-            if (typeof settings.height !== undefined) {
+            if (typeof settings.height !== 'undefined') {
                 footerClasses.push('sticky-bottom');
             }
 
-            const $tfoot = $table.children('tfoot').empty().addClass(footerClasses.join(' '));
+            const $tfoot = $($table.children('tfoot')).empty().addClass(footerClasses.join(' '));
 
             if (showFooter) {
                 $tfoot.removeClass('d-none');
@@ -2008,21 +2211,30 @@
             const $tr = $('<tr></tr>').appendTo($tfoot);
 
             if (showFooter) {
-                if (settings.showCheckItems === true) {
-                    $('<th></th>').appendTo($tr);
-                }
-
                 let colIndex = 0;
                 columns.forEach(column => {
                     this.tfootTr(column, $tr, colIndex, data);
                     colIndex++;
-                })
+                });
+
+                if (settings.showCheckItems === true) {
+                    buildCheckItem($table, $tr, false, true);
+                }
 
                 // Nur die Daten der aktuellen Seite an onPostFooter übergeben
                 triggerEvent($table, 'post-footer', $tfoot, $table);
                 $.bsTable.utils.executeFunction(settings.onPostFooter, $tfoot, $table);
             }
         },
+        /**
+         * Generates a table footer row (`<tr>`) and appends a table header cell (`<th>`) element with the appropriate content and styling based on the provided column configuration.
+         *
+         * @param {Object} column - The configuration object for the column, including properties for footer formatter, alignment, and visibility.
+         * @param {jQuery} $tr - A jQuery object representing the table row (`<tr>`) to which the footer cell (`<th>`) will be appended.
+         * @param {number} colIndex - The index of the column in the table.
+         * @param {*} data - The data used to evaluate the footer formatter function and generate the footer cell content.
+         * @return {void} This method does not return a value; it modifies the DOM by appending a `<th>` element to the provided `<tr>`.
+         */
         tfootTr(column, $tr, colIndex, data) {
             // Formatierer-Wert prüfen und zuweisen
             const formatterValue = $.bsTable.utils.executeFunction(column.footerFormatter, data);
@@ -2054,15 +2266,25 @@
     };
 
 
-    function toggleColumnVisibility($table, colIndex, isVisible) {
+    /**
+     * Toggles the visibility of a specific column in a table.
+     *
+     * @param {jQuery} $tableElement - The jQuery object representing the table in which the column visibility is to be toggled.
+     * @param {number} colIndex - The index of the column for which the visibility needs to be toggled.
+     * @param {boolean} isVisible - A boolean flag indicating whether the column should be visible.
+     *                               When true, the column will be made visible; when false, the column will be hidden.
+     * @return {void} No return value.
+     */
+    function toggleColumnVisibility($tableElement, colIndex, isVisible) {
+        const $table = $($tableElement);
         // Selektiert die `th`-Elemente im Header, basierend auf colIndex
-        const $theadThs = $table.children('thead').children('tr').children(`th[data-col-index="${colIndex}"]`);
+        const $theadThs = $($table.children('thead')).children('tr').children(`th[data-col-index="${colIndex}"]`);
 
         // Selektiert die `td`-Zellen im Body, basierend auf colIndex
-        const $tbodyTds = $table.children('tbody').children('tr').children(`td[data-col-index="${colIndex}"]`);
+        const $tbodyTds = $($table.children('tbody')).children('tr').children(`td[data-col-index="${colIndex}"]`);
 
         // Selektiert die Zellen im Footer, basierend auf colIndex
-        const $tfootCells = $table.children('tfoot').children('tr').children(`[data-col-index="${colIndex}"]`);
+        const $tfootCells = $($table.children('tfoot')).children('tr').children(`[data-col-index="${colIndex}"]`);
 
         // Sichtbarkeit aktualisieren: d-none hinzufügen oder entfernen
         if (isVisible) {
@@ -2076,6 +2298,13 @@
         }
     }
 
+    /**
+     * Retrieves the appropriate icon based on the given sort order.
+     *
+     * @param {jQuery} $table - The table reference containing the settings for icons.
+     * @param {string} sortOrder - The sort order which can be 'asc', 'desc', or other values.
+     * @return {string} The icon corresponding to the provided sort order, or the default icon if the sort order is unrecognized.
+     */
     function getIconBySortOrder($table, sortOrder) {
         const {icons} = getSettings($table);
         const iconMap = {
@@ -2084,6 +2313,15 @@
         return iconMap[sortOrder] || iconMap.default;
     }
 
+    /**
+     * Builds a check item cell (checkbox or indicator) and appends or prepends it to the specified table row.
+     *
+     * @param {jQuery} $table - The table element where the check item is being created.
+     * @param {jQuery} $tr - The table row element to which the check item will be added.
+     * @param {boolean} [checked=false] - Flag indicating whether the check item should be marked as checked.
+     * @param {boolean} [forHeader=false] - Flag indicating whether the check item is for the table header row.
+     * @return {void}
+     */
     function buildCheckItem($table, $tr, checked = false, forHeader = false) {
         const settings = getSettings($table);
         if (settings.showCheckItems !== true) {
@@ -2122,8 +2360,12 @@
             html: `<i class="${bsTableClasses.checkIcon} ${icon}"></i>`
         });
 
-        if (checkItem.width) {
+        if (checkItem.width && checkItem.visible === true) {
             $cell.css('width', checkItem.width);
+        }
+
+        if (checkItem.visible !== true) {
+            $cell.addClass('d-none');
         }
 
         if (forHeader) {
@@ -2139,7 +2381,13 @@
         }
     }
 
-
+    /**
+     * Calculates and returns the number of columns in a given table, optionally considering only visible columns.
+     *
+     * @param {jQuery} $table - The table for which the column count needs to be determined.
+     * @param {boolean} [onlyVisible=true] - Flag indicating whether to count only visible columns. Defaults to true.
+     * @return {number} - The total number of columns, including additional columns such as check items if applicable.
+     */
     function getCountColumns($table, onlyVisible = true) {
         const settings = getSettings($table);
 
@@ -2156,35 +2404,60 @@
         return columnCount;
     }
 
+    /**
+     * Retrieves the settings object associated with the given table.
+     *
+     * @param {jQuery} $table - A jQuery object representing the table element.
+     * @return {Object} The settings object associated with the table.
+     */
     function getSettings($table) {
-        return $table.data('bsTable').settings;
+        return $($table).data('bsTable').settings;
     }
 
+    /**
+     * Updates the settings of the given table element.
+     *
+     * @param {jQuery} $table - The table element as a jQuery object.
+     * @param {Object} settings - New settings to be applied to the table.
+     * @return {void} This method does not return a value.
+     */
     function setSettings($table, settings) {
-        const data = $table.data('bsTable');
+        const data = $($table).data('bsTable');
         if (data) {
             data.settings = settings;
         }
-        $table.data('bsTable', data);
+        $($table).data('bsTable', data);
     }
 
+    /**
+     * Retrieves the response data associated with a specified table element.
+     *
+     * @param {jQuery} $table - A jQuery object representing the table element.
+     * @return {Object} An object containing the response data, including `rows` (an array) and `total` (a number).
+     */
     function getResponse($table) {
-        return $table.data('bsTable').response || {rows: [], total: 0};
+        return $($table).data('bsTable').response || {rows: [], total: 0};
     }
 
-    function setCheckItem($table, checkItem) {
-        // Access the table's data
-        const data = $table.data('bsTable');
-        data.checkItem = checkItem;
-        $table.data('bsTable', data);
-    }
-
-
+    /**
+     * Retrieves the selected items from a table using its bootstrap table instance.
+     *
+     * @param {jQuery} $table - A jQuery object representing the table element.
+     * @return {Array} An array of selected items from the table. If no items are selected, returns an empty array.
+     */
     function getSelected($table) {
-        return $table.data('bsTable').selected || []
+        return $($table).data('bsTable').selected || []
     }
 
-    function addSelected($table, selected) {
+    /**
+     * Adds a selected item to the table's internal selected data, ensuring no duplicates are added.
+     *
+     * @param {jQuery} $tableElement - The jQuery object representing the table.
+     * @param {Object} selected - The object representing the selected item to be added.
+     * @return {void} The function does not return any value.
+     */
+    function addSelected($tableElement, selected) {
+        const $table = $($tableElement);
         // Access the table's data
         const data = $table.data('bsTable');
         const checkItemsConfig = data.settings.checkItemsConfig;
@@ -2210,7 +2483,15 @@
         build.hiddenSelectedInputs($table);
     }
 
-    function removeSelected($table, row) {
+    /**
+     * Removes a selected row from the table's internal data configuration.
+     *
+     * @param {jQuery} $tableElement jQuery object representing the table element.
+     * @param {object} row The row object to be removed from the selected list.
+     * @return {void} Does not return a value, updates the table's internal data directly.
+     */
+    function removeSelected($tableElement, row) {
+        const $table = $($tableElement);
         // Retrieve the table's internal data
         const data = $table.data('bsTable');
         const checkItem = data.settings.checkItemsConfig;
@@ -2231,14 +2512,20 @@
         build.hiddenSelectedInputs($table);
     }
 
-    function removeAllSelected($table) {
+    /**
+     * Removes all selected items from the table's internal data and updates the associated selection state.
+     *
+     * @param {jQuery} $tableElement - The table element wrapped in a jQuery object, which holds the table's internal data and configuration.
+     * @return {void} - This method does not return a value. The operation modifies the table's internal state.
+     */
+    function removeAllSelected($tableElement) {
+        const $table = $($tableElement);
         // Retrieve the table's internal data
         const data = $table.data('bsTable');
-        const checkItem = data.settings.checkItemsConfig;
 
         if (data) {
             if (data.settings.debug) {
-                console.log('removeAllSelected', row);
+                console.log('removeAllSelected');
             }
 
             data.selected = [];
@@ -2252,7 +2539,15 @@
         build.hiddenSelectedInputs($table);
     }
 
-    function setSelected($table, rows) {
+    /**
+     * Sets the selected rows for the specified table and updates its internal data.
+     *
+     * @param {jQuery} $tableElement - The jQuery-wrapped table element to update.
+     * @param {Array} rows - An array of rows to mark as selected. If not provided, defaults to an empty array.
+     * @return {void} No value is returned from this method.
+     */
+    function setSelected($tableElement, rows) {
+        const $table = $($tableElement);
         const data = $table.data('bsTable');
         if (data) {
             data.selected = rows || [];
@@ -2261,7 +2556,15 @@
         build.hiddenSelectedInputs($table);
     }
 
-    function setResponse($table, response) {
+    /**
+     * Updates the response data for a given table element.
+     *
+     * @param {jQuery} $tableElement - The jQuery reference to the table element.
+     * @param {Object} response - The response object to set, containing `rows` and `total` properties. If not provided, a default response with empty rows and zero total is used.
+     * @return {void}
+     */
+    function setResponse($tableElement, response) {
+        const $table = $($tableElement);
         const data = $table.data('bsTable');
         if (data) {
             data.response = response || {rows: [], total: 0};
@@ -2270,12 +2573,24 @@
     }
 
 
+    /**
+     * Retrieves the toggle view function from a Bootstrap table element.
+     *
+     * @param {jQuery} $table - A jQuery object representing the Bootstrap table element.
+     * @return {boolean} The toggleView true if available, otherwise false.
+     */
     function getToggleView($table) {
-        return $table.data('bsTable').toggleView;
+        return $($table).data('bsTable').toggleView;
     }
 
+    /**
+     * Retrieves the toggleCustomView property from the bsTable data of the given table.
+     *
+     * @param {jQuery} $table - A jQuery object representing the table element.
+     * @return {boolean} - The toggleCustomView true if available, otherwise false.
+     */
     function getToggleCustomView($table) {
-        return $table.data('bsTable').toggleCustomView;
+        return $($table).data('bsTable').toggleCustomView;
     }
 
     function setToggleCustomView($table, toggle) {
@@ -2286,7 +2601,15 @@
         $table.data('bsTable', data);
     }
 
-    function setToggleView($table, toggleView) {
+    /**
+     * Updates the toggle view state of a Bootstrap table instance.
+     *
+     * @param {jQuery} $tableElement - The jQuery object representing the table element.
+     * @param {boolean} toggleView - A boolean value indicating whether to enable or disable the toggle view.
+     * @return {void} This function does not return a value.
+     */
+    function setToggleView($tableElement, toggleView) {
+        const $table = $($tableElement);
         const data = $table.data('bsTable');
         if (data) {
             data.toggleView = toggleView;
@@ -2383,17 +2706,6 @@
         }).first(); // Nur den ersten gefilterten Input holen (falls mehr als einer gefunden wird)
 
         return $searchInput.length > 0 ? $searchInput : $(); // Fallback: leeres jQuery-Objekt, falls nichts gefunden
-    }
-
-    /**
-     * Generates a unique identifier string by appending a randomly generated portion to the given prefix.
-     *
-     * @param {string} [prefix="bs_table_wrapper_"] - The string to prepend to the generated unique ID.
-     * @return {string} A unique identifier string prefixed with the provided or default prefix.
-     */
-    function getUniqueId(prefix = "bs_table_wrapper_") {
-        const randomId = Math.random().toString(36).substring(2, 10);
-        return prefix + randomId;
     }
 
 
@@ -2494,9 +2806,10 @@
      * It triggers the corresponding row and cell click events (custom and native),
      * and, if enabled in settings, can also toggle the check item when the row is clicked.
      *
-     * @param {jQuery} $td - The table cell (<td>) that was clicked.
+     * @param {jQuery} $tdElement - The table cell (<td>) that was clicked.
      */
-    function onClickCellAndRow($td) {
+    function onClickCellAndRow($tdElement) {
+        const $td = $($tdElement);
         // Ignore this click if the cell is a check item cell (checkbox/radio)
         if ($td.attr('data-check-item')) {
             return;
@@ -2546,11 +2859,12 @@
      *
      * Unless the triggered event is 'all', it also triggers the generic 'all' event for global listeners.
      *
-     * @param {jQuery} $table         - jQuery object representing the table element.
+     * @param {jQuery} $tableElement         - jQuery object representing the table element.
      * @param {string} eventName      - The name of the event to trigger (without namespace).
      * @param {...any} args           - Additional arguments that should be passed to event handlers.
      */
-    function triggerEvent($table, eventName, ...args) {
+    function triggerEvent($tableElement, eventName, ...args) {
+        const $table = $($tableElement);
         // Get the native DOM element of the table
         const targetTable = $table[0];
 
@@ -2561,7 +2875,7 @@
         const isSubTable = $table.closest(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
 
         // Determine if this table contains any sub-tables (children)
-        const hasSubTables = getClosestWrapper($table).find(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
+        const hasSubTables = $(getClosestWrapper($table)).find(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
 
         // Compose event-specific table data for event consumers
         const bsTableDatas = {
@@ -2602,7 +2916,15 @@
         return $(`table[data-wrapper="${wrapperId}"`);
     }
 
-    function handleClickOnPaginationSize($table, $a) {
+    /**
+     * Handles the click event for changing the pagination size of a table.
+     *
+     * @param {jQuery} $table - The jQuery object representing the table element.
+     * @param {jQuery} $aTag - The jQuery object representing the clicked pagination size anchor element.
+     * @return {void} This function does not return a value.
+     */
+    function handleClickOnPaginationSize($table, $aTag) {
+        const $a = $($aTag)
         const settings = getSettings($table);
         const response = getResponse($table);
         settings.pageSize = parseInt($a.data('page'));
@@ -2625,9 +2947,10 @@
      * and the table's selection data accordingly. It also updates the icon and row-class in the DOM,
      * and triggers the relevant check/uncheck events and callbacks.
      *
-     * @param {jQuery} $td - The table cell (`<td>`) that was clicked
+     * @param {jQuery} $tdElement - The table cell (`<td>`) that was clicked
      */
-    function handleCheckItemClicked($td) {
+    function handleCheckItemClicked($tdElement) {
+        const $td = $($tdElement);
         // Get the outer wrapper element associated with this cell
         const $wrapper = $(getClosestWrapper($td));
         // Get the related table using the wrapper's ID
@@ -2677,15 +3000,29 @@
         }
     }
 
-    function performSearch(wrapper) {
-        const table = getTableByWrapperId(wrapper.attr('id'));
+    /**
+     * Executes a search operation by retrieving settings and refreshing the associated table.
+     *
+     * @param {jQuery} $wrapper - The DOM wrapper element containing the table's identifier.
+     * @return {void} No return value.
+     */
+    function performSearch($wrapper) {
+        const table = getTableByWrapperId($($wrapper).attr('id'));
         const settings = getSettings(table);
         settings.pageNumber = 1;
         setSettings(table, settings);
         refresh(table); // Tabelle aktualisieren
     }
 
-    function handleCheckItemAllClicked($th) {
+    /**
+     * Handles the event when the "Check All" checkbox or control is clicked.
+     * Toggles the selection state of all items in the related table based on the checkbox state.
+     *
+     * @param {jQuery} $thElement The jQuery object representing the header or control element that triggered the event.
+     * @return {void} No return value.
+     */
+    function handleCheckItemAllClicked($thElement) {
+        const $th = $($thElement);
         const checkAll = $th.attr('data-check-item-all') === 'false';
         // Get the outer wrapper element associated with this cell
         const $wrapper = $(getClosestWrapper($th));
@@ -2711,12 +3048,36 @@
         });
     }
 
+    /**
+     * Registers global table-related event listeners that handle various actions
+     * such as clicks, changes, input events, and more for elements associated
+     * with table management. These events are delegated to the parent `document`
+     * object and target specific table elements based on class and attribute selectors.
+     *
+     * The registered events include:
+     * - Handling click and selection on table rows, cells, and headers.
+     * - Managing actions such as sorting, pagination, and search.
+     * - Supporting custom table views and refresh operations.
+     * - Preventing default behaviors when interacting with specific elements.
+     *
+     * @return {void} This function does not return a value.
+     */
     function registerGlobalTableEvents() {
         let searchTimeout;
-
+        const preventDefault = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        }
         // Delegiere Events an ein Eltern-Element, z. B. `document`:
         $(document)
-            .on(['click' + namespace, 'change' + namespace, 'input' + namespace, 'touchstart' + namespace, 'mouseenter' + namespace].join(' '), '.' + bsTableClasses.wrapper, function (e) {
+            .on([
+                'click' + namespace,
+                'change' + namespace,
+                'input' + namespace,
+                'touchstart' + namespace,
+                'mouseenter' + namespace
+            ].join(' '), '.' + bsTableClasses.wrapper, function (e) {
                 const $target = $(e.currentTarget);
 
                 // Stelle sicher, dass nur das äußerste Element Events erhält
@@ -2728,92 +3089,95 @@
                 // register events for the outer `.bsTableClasses.wrapper`
                 // Depending on the type of event, you can differentiate here if necessary.
             })
-            .on(['click' + namespace, 'change' + namespace, 'touchstart' + namespace, 'mouseenter' + namespace,].join(' '), `.${bsTableClasses.wrapper} [data-child="true"]`, function (e) {
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+            .on([
+                'click' + namespace,
+                'change' + namespace,
+                'touchstart' + namespace,
+                'mouseenter' + namespace
+            ].join(' '), `.${bsTableClasses.wrapper} [data-child="true"]`, function (e) {
+                preventDefault(e);
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr[data-index] > td:not([data-check-item])`, function (e) {
-                // Überprüfen, ob das Ziel ein Link oder ein Button ist
+                // Check whether the target is a link, button, input, textarea or select
                 if (
                     e.target.tagName === 'A' || $(e.target).closest('a').length > 0 ||
-                    e.target.tagName === 'BUTTON' || $(e.target).closest('button').length > 0
+                    e.target.tagName === 'BUTTON' || $(e.target).closest('button').length > 0 ||
+                    e.target.tagName === 'INPUT' || $(e.target).closest('input').length > 0 ||
+                    e.target.tagName === 'TEXTAREA' || $(e.target).closest('textarea').length > 0 ||
+                    e.target.tagName === 'SELECT' || $(e.target).closest('select').length > 0
                 ) {
-                    return; // Verlasse die Funktion, wenn ein Link oder Button angeklickt wurde
+                    return; // do nothing if a link, button, input, textarea or select was clicked
                 }
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                const selection = window.getSelection().toString();
+                if (selection) {
+                    return;
+                }
+
+                //Do not react to double click
+                if (e.detail && e.detail > 1) {
+                    return;
+                }
+
+                preventDefault(e);
                 onClickCellAndRow($(e.currentTarget));
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} tbody td[data-check-item]`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 handleCheckItemClicked($(e.currentTarget));
             })
-            .on('click' + namespace, `.${bsTableClasses.wrapper} thead th[data-check-item-all]`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+            .on('click' + namespace, [
+                `.${bsTableClasses.wrapper} thead th[data-check-item-all]`,
+                `.${bsTableClasses.wrapper} tfoot th[data-check-item-all]`
+            ].join(', '), function (e) {
+                preventDefault(e);
                 handleCheckItemAllClicked($(e.currentTarget));
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} thead th[data-sortable="true"]`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 handleSortOnTheadTh($(e.currentTarget));
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} [data-role="tablePaginationPageSize"] .dropdown-item`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 const $a = $(e.currentTarget);
                 if (!$a.length) {
                     return;
                 }
-                const wrapper = getClosestWrapper($a);
-                const table = getTableByWrapperId(wrapper.attr('id'));
+                const wrapper = $(getClosestWrapper($a));
+                const table = $(getTableByWrapperId(wrapper.attr('id')));
                 handleClickOnPaginationSize(table, $a);
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.btnRefresh}`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 const $btn = $(e.currentTarget);
                 if (!$btn.length) {
                     return;
                 }
-                const $wrapper = getClosestWrapper($btn);
-                const table = getTableByWrapperId($wrapper.attr('id'));
+                const $wrapper = $(getClosestWrapper($btn));
+                const table = $(getTableByWrapperId($wrapper.attr('id')));
                 refresh(table, null, true);
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.btnToggle}`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 const $btn = $(e.currentTarget);
                 if (!$btn.length) {
                     return;
                 }
-                const $wrapper = getClosestWrapper($btn);
-                const table = getTableByWrapperId($wrapper.attr('id'));
+                const $wrapper = $(getClosestWrapper($btn));
+                const table = $(getTableByWrapperId($wrapper.attr('id')));
                 toggleView(table);
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.btnCustomView}`, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 const $btn = $(e.currentTarget);
                 if (!$btn.length) {
                     return;
                 }
-                const $wrapper = getClosestWrapper($btn);
-                const table = getTableByWrapperId($wrapper.attr('id'));
+                const $wrapper = $(getClosestWrapper($btn));
+                const table = $(getTableByWrapperId($wrapper.attr('id')));
                 toggleCustomView(table);
             })
             .on('input' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.searchInput}`, function (e) {
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+                preventDefault(e);
                 const $searchField = $(e.currentTarget);
                 if (!$searchField.length) {
                     return;
@@ -2833,23 +3197,17 @@
                 }
             })
             .on('click' + namespace, `.${bsTableClasses.wrapper} .${bsTableClasses.pagination} .page-link`, function (e) {
-                // Verhindere unerwünschte Browser- und DOM-Ereignisse
-                e.preventDefault();             // Standardaktion verhindern
-                e.stopPropagation();            // Ereignis weiter oben im DOM verhindern
-                e.stopImmediatePropagation();   // Andere Handler für dieses Ereignis stoppen
+                preventDefault(e);
 
                 const $pageLink = $(e.currentTarget);
 
-                // Safety: Überprüfen, ob das geklickte Element existiert
                 if (!$pageLink.length) {
                     return;
                 }
 
-                const wrapper = getClosestWrapper($pageLink); // Funktion vorhanden
 
-
-                // Tabelle und Einstellungen verarbeiten
-                const table = getTableByWrapperId(wrapper.attr('id'));
+                const wrapper = $(getClosestWrapper($pageLink)); // Funktion vorhanden
+                const table = $(getTableByWrapperId(wrapper.attr('id')));
                 const settings = getSettings(table);
                 const response = getResponse(table);
 

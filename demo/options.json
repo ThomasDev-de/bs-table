@@ -218,18 +218,18 @@
     ]
   },
   {
-    "option": "showRefresh",
+    "option": "showButtonRefresh",
     "type": "boolean",
     "default": false,
     "description": "Displays a refresh button above the table, allowing the user to reload the data.",
     "examples": [
       {
         "language": "javascript",
-        "code": "$('#table').bsTable({\n    showRefresh: true\n})"
+        "code": "$('#table').bsTable({\n    showButtonRefresh: true\n})"
       },
       {
         "language": "html",
-        "code": "<table data-show-refresh='true'></table>"
+        "code": "<table data-show-button-refresh='true'></table>"
       }
     ]
   },
