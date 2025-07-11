@@ -139,7 +139,7 @@
             field: 'checkItems',       // Associated field in table data
             clickRowToSelect: false,   // Whether clicking the row also selects the item
             align: 'center',           // Horizontal alignment for cell
-            valign: 'middle',          // Vertical alignment for cell
+            valign: 'top',          // Vertical alignment for cell
             position: 'start',         // Position of the check items in the row ('start' or 'end')
             width: 35,                 // A fixed width
             visible: true              // Show or hide the Checkitem
