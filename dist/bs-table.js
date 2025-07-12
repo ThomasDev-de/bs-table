@@ -39,6 +39,7 @@
             showCheckItems: false,
             checkItemsConfig: {},
             cardView: false,
+            detailView: false,
             showButtonCustomView: false,
             customView: false,
             onCustomView(_rows, _$td) {
@@ -48,9 +49,9 @@
             columns: [],
             minimumCountColumns: 1,
             icons: {
-                sortAsc: 'bi bi-caret-down-fill text-primary',
-                sortDesc: 'bi bi-caret-up-fill text-primary',
-                sortNone: 'bi bi-caret-down',
+                sortAsc: 'bi bi-chevron-down text-primary',
+                sortDesc: 'bi bi-chevron-up text-primary',
+                sortNone: 'bi bi-chevron-expand',
                 refresh: 'bi bi-arrow-clockwise',
                 search: 'bi bi-search',
                 paginationNext: 'bi bi-chevron-right',
@@ -63,6 +64,8 @@
                 check: 'bi bi-check-square fw-bold',
                 uncheckAll: 'bi bi-square fw-bold',
                 uncheck: 'bi bi-square fw-bold',
+                expand: 'bi bi-plus-lg',
+                collapse: 'bi bi-dash-lg',
             },
             caption: null,
             rowStyle(_row, _index, _$tr) {
@@ -76,6 +79,10 @@
             onAll(_eventName, ..._args) {
             },
             onError(_message) {
+            },
+            onExpandRow(_index, _row, _$tr) {
+            },
+            onCollapseRow(_index, _row, _$tr) {
             },
             onLoadSuccess() {
             },
@@ -131,6 +138,7 @@
             falign: 'start',
             formatter: undefined,
             footerFormatter: undefined,
+            headerFormatter: undefined,
             events: undefined
         },
         checkItemsConfigDefaults: {
@@ -143,6 +151,16 @@
             position: 'start',         // Position of the check items in the row ('start' or 'end')
             width: 35,                 // A fixed width
             visible: true              // Show or hide the Checkitem
+        },
+        detailViewDefaults: {
+            align: 'center',
+            valign: 'top',
+            position: 'start',
+            width: 35,
+            visible: true,
+            clickRowToToggle: false,
+            field: 'option',
+            formatter: undefined,
         },
         utils: {
             getUniqueId(prefix = "bs_table_wrapper_") {
@@ -242,7 +260,7 @@
                 return func(...args);
             },
             isValueEmpty(value) {
-                if (value === null || value === 'undefined') {
+                if (value === null || typeof value === 'undefined') {
                     return true; // Null or undefined
                 }
                 if (Array.isArray(value)) {
@@ -615,6 +633,7 @@
             settings: settings,
             toggleView: settings.cardView === true,
             toggleCustomView: settings.customView === true,
+            expanded: [],
             response: [],
             selected: []
         };
@@ -624,12 +643,82 @@
 
         // Clean the CheckitemConfig
         checkCheckItemsConfig($table);
+        // Clean the detailViewConfig
+        checkDetailViewConfig($table);
 
         // Create Structure Elements of the Table
         build.structure($table);
 
         // Update table (e.g. load or render data)
         refresh($table);
+    }
+
+    /**
+     * Validates and applies the configuration for the detailView feature of a Bootstrap-based table.
+     *
+     * This function ensures that the "detailView" option in a table's configuration adheres to required structures and types,
+     * falls back to defaults if necessary, and handles invalid configurations by triggering error events.
+     *
+     * @function checkDetailViewConfig
+     * @param {jQuery} $table - A jQuery object representing the table whose detailView settings are being validated.
+     *
+     * @description
+     * - Checks if the "detailView" property is enabled and evaluates its structure.
+     * - Merges user-provided settings with system defaults using a deep merge strategy.
+     * - Ensures critical properties (e.g., "field", "align") are valid, applying corrections as needed.
+     * - Supports error handling and triggers custom error events via the table's onError handler.
+     *
+     * @example
+     * // Example usage
+     * const $table = $('#myTable');
+     * checkDetailViewConfig($table);
+     *
+     * // Post-execution: The table's settings now retain a finalized, valid "detailView" configuration.
+     */
+    function checkDetailViewConfig($table) {
+        const settings = getSettings($table);
+
+        // Proceed only if detailView is enabled
+        if (settings.detailView === false) {
+            return;
+        }
+
+        let isValid = true;
+        let userConfig;
+
+        // Validate detailView configuration
+        if (typeof settings.detailView !== 'object') {
+            const error = `Invalid detailView configuration. Please provide an object.`;
+            triggerEvent($table, 'error', error);
+            $.bsTable.utils.executeFunction(settings.onError, error);
+            isValid = false;
+        }
+
+        if (isValid) {
+            // Merge user configuration with defaults
+            userConfig = $.extend(true, {}, $.bsTable.detailViewDefaults, settings.detailView || {});
+
+            // Ensure the "field" property exists and matches one of the defined columns
+            isValid = typeof userConfig.field === 'string' && settings.columns.some(column => column.field === userConfig.field);
+            if (!isValid) {
+                const error = `DetailView cannot be displayed. Missing or invalid property field: ${userConfig.field}`;
+                triggerEvent($table, 'error', error);
+                $.bsTable.utils.executeFunction(settings.onError, error);
+            }
+        }
+
+        // Apply default values for specific properties
+        if (isValid) {
+            userConfig.clickRowToToggle = typeof userConfig.clickRowToToggle === 'boolean' ? userConfig.clickRowToToggle : false;
+            userConfig.visible = typeof userConfig.visible === 'boolean' ? userConfig.visible : true;
+            userConfig.align = ['start', 'left', 'center', 'end', 'right'].includes(userConfig.align) ? userConfig.align : 'center';
+            userConfig.valign = ['top', 'middle', 'bottom'].includes(userConfig.valign) ? userConfig.valign : 'middle';
+            userConfig.position = ['start', 'end'].includes(userConfig.position) ? userConfig.position : 'start';
+        }
+
+        // Finalize settings or disable detailView if invalid
+        settings.detailView = isValid ? userConfig : false;
+        setSettings($table, settings);
     }
 
     /**
@@ -699,7 +788,7 @@
 
         // Step 3: Validate presence of referenced field in settings.columns
         if (isValid) {
-            isValid = typeof userConfig.name === 'string' && settings.columns.some(column => column.field === userConfig.field);
+            isValid = typeof userConfig.field === 'string' && settings.columns.some(column => column.field === userConfig.field);
             if (!isValid) {
                 const error = [
                     `Checkitems cannot be displayed.`,
@@ -1570,7 +1659,7 @@
                 );
 
                 // Find the corresponding <tr> for this row index in tbody.
-                const $tr = $($tbody.children('tr')).eq(index);
+                const $tr = $($tbody.children('tr[data-index]')).eq(index);
 
                 // Find the check item cell in the row (first matching).
                 const $td = $tr.find('td[data-check-item]').first();
@@ -1817,7 +1906,7 @@
             }
 
             if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
-                this.thead($table);
+                this.thead($table, currentPageData);
                 this.tbody($table, currentPageData);
                 this.tfoot($table, currentPageData);
                 this.hiddenSelectedInputs($table);
@@ -1895,9 +1984,10 @@
          * This includes setting up header classes, handling visibility, and populating the header row with columns if applicable.
          *
          * @param {jQuery} $tableElement - The jQuery object representing the table element whose `<thead>` needs to be processed.
+         * @param {Array} data - The table data used to populate the tfoot if necessary.
          * @return {void} - This method does not return a value.
          */
-        thead($tableElement) {
+        thead($tableElement, data) {
             const $table = $($tableElement);
             const settings = getSettings($table);
             const columns = settings.columns || [];
@@ -1927,10 +2017,13 @@
 
                 let colIndex = 0;
                 columns.forEach(column => {
-                    this.theadTr(column, $tr, colIndex);
+                    this.theadTr(column, $tr, colIndex, data);
                     colIndex++;
                 });
 
+                if (settings.detailView !== false) {
+                    buildDetailView($table, $tr, true);
+                }
                 if (settings.showCheckItems === true) {
                     buildCheckItem($table, $tr, false, true);
                 }
@@ -1946,13 +2039,15 @@
          * @param {Object} column - The column configuration object, containing details like field name, title, width, visibility, and alignment.
          * @param {jQuery} $tr - The jQuery object representing the table row (`<tr>`) where the header cell should be added.
          * @param {number} colIndex - The index of the column in the table, used to uniquely identify the header cell.
+         * @param {Array} data - The table data used to populate the tfoot if necessary.
          * @return {void}
          */
-        theadTr(column, $tr, colIndex) {
+        theadTr(column, $tr, colIndex, data) {
             const $table = $($tr).closest('table');
             const settings = getSettings($table);
             const isSortable = column.sortable === true;
             const order = column.field === settings.sortName ? settings.sortOrder ?? '' : '';
+
 
             // Create the <th> element
             const $th = $('<th>', {
@@ -1962,12 +2057,16 @@
                 'data-col-index': colIndex
             }).appendTo($tr);
 
+            const formatterValue = $.bsTable.utils.executeFunction(column.headerFormatter, data, $th);
+            const value = !$.bsTable.utils.isValueEmpty(formatterValue) ? formatterValue : (column.title || 'Column ' + (colIndex + 1));
+            // If the user has set content, empty the th
+            $th.empty();
             // Build inner HTML
             if (isSortable) {
                 // If sortable, create the inner structure manually
                 const $container = $('<div>', {class: 'd-flex align-items-center justify-content-between'});
-                const $title = $('<span>', {class: 'flex-fill me-1', text: column.title ?? ''});
-                const $icon = $('<span>').append($('<i>', {
+                const $title = $('<div>', {class: 'flex-fill me-1', html: value});
+                const $icon = $('<div>').append($('<i>', {
                     class: `bs-table-icon ${getIconBySortOrder($table, order)}`
                 }));
 
@@ -1977,7 +2076,7 @@
                 // Add pointer cursor
                 $th.css('cursor', 'pointer');
             } else {
-                $th.text(column.title ?? '');
+                $th.html(value);
             }
 
             // Apply CSS and attributes
@@ -2012,6 +2111,7 @@
             const $table = $($tableElement);
             const settings = getSettings($table);
             const selected = getSelected($table);
+            const expandedElements = getExpanded($table);
             triggerEvent($table, 'pre-body', rows, $table);
             $.bsTable.utils.executeFunction(settings.onPreBody, rows, $table);
             const hasColumns = settings.columns && settings.columns.length;
@@ -2019,6 +2119,7 @@
             const inToggleView = getToggleView($table);
             const inToggleCustomView = getToggleCustomView($table);
             const hasResponse = rows && rows.length > 0;
+            const expandRows = [];
 
             let bodyClasses = [];
             if (typeof settings.classes === 'object' && settings.classes.hasOwnProperty('tbody')) {
@@ -2061,12 +2162,23 @@
                             this.tbodyTd(column, row, $tr, colIndex, inToggleView);
                             colIndex++;
                         });
+                        if (settings.detailView !== false) {
+                            const expanded = expandedElements.includes(row[settings.detailView.field]);
+                            if (expanded) {
+                                expandRows.push($tr);
+                            }
+                            buildDetailView($table, $tr, false);
+                        }
                         if (settings.showCheckItems === true) {
                             const checked = selected.some(item => item[settings.checkItemsConfig.field] === row[settings.checkItemsConfig.field]);
                             buildCheckItem($table, $tr, checked, false);
                         }
                     }
                     trIndex++;
+                });
+                expandRows.forEach(row => {
+                    const tdToExpand = row.find('[data-detail-item]');
+                    toggleExpandOrCollapse(tdToExpand, false);
                 })
             }
 
@@ -2217,6 +2329,10 @@
                     colIndex++;
                 });
 
+                if (settings.detailView !== false) {
+                    buildDetailView($table, $tr, true);
+                }
+
                 if (settings.showCheckItems === true) {
                     buildCheckItem($table, $tr, false, true);
                 }
@@ -2237,14 +2353,15 @@
          */
         tfootTr(column, $tr, colIndex, data) {
             // Formatierer-Wert prüfen und zuweisen
-            const formatterValue = $.bsTable.utils.executeFunction(column.footerFormatter, data);
-            const value = !$.bsTable.utils.isValueEmpty(formatterValue) ? formatterValue : '';
 
             // <th>-Element erstellen
             const $th = $('<th>', {
-                html: value, 'data-col-index': colIndex
+                'data-col-index': colIndex
             }).appendTo($tr);
 
+            const formatterValue = $.bsTable.utils.executeFunction(column.footerFormatter, data, $th);
+            const value = !$.bsTable.utils.isValueEmpty(formatterValue) ? formatterValue : '';
+            $th.html(value);
             // Assignment of Alignment Classes
             const alignmentClasses = {
                 end: 'text-end',
@@ -2381,6 +2498,65 @@
         }
     }
 
+    function buildDetailView($table, $tr, forHeader = false) {
+        const settings = getSettings($table);
+        if (settings.detailView === false) {
+            return;
+        }
+
+        const checkItem = settings.detailView;
+        let icon;
+        if (!forHeader) {
+            icon = settings.icons.expand;
+        } else {
+            icon = 'bi bi-plus-slash-minus';
+        }
+
+        const classes = [];
+        if (['start', 'left'].includes(checkItem.align)) {
+            classes.push('text-start');
+        } else if (['end', 'right'].includes(checkItem.align)) {
+            classes.push('text-end');
+        } else {
+            classes.push('text-center');
+        }
+        if (checkItem.valign === 'top') {
+            classes.push('align-top');
+        } else if (checkItem.valign === 'middle') {
+            classes.push('align-middle');
+        } else {
+            classes.push('align-bottom');
+        }
+
+        const $cell = $(forHeader ? '<th></th>' : '<td></td>', {
+            class: classes.join(' '),
+            css: {
+                cursor: 'pointer'
+            },
+            html: `<i class="${bsTableClasses.checkIcon} ${icon}"></i>`
+        });
+
+        if (checkItem.width && checkItem.visible === true) {
+            $cell.css('width', checkItem.width);
+        }
+
+        if (checkItem.visible !== true) {
+            $cell.addClass('d-none');
+        }
+
+        if (forHeader) {
+            $cell.attr('data-detail-item-all', 'false');
+        } else {
+            $cell.attr('data-detail-item', 'false');
+        }
+
+        if (checkItem.position === 'start') {
+            $cell.prependTo($tr);
+        } else {
+            $cell.appendTo($tr);
+        }
+    }
+
     /**
      * Calculates and returns the number of columns in a given table, optionally considering only visible columns.
      *
@@ -2397,7 +2573,11 @@
 
         let columnCount = settings.columns.filter(column => !onlyVisible || column.visible !== false).length;
 
-        if (settings.showCheckItems === true) {
+        if (settings.showCheckItems !== false) {
+            columnCount += 1;
+        }
+
+        if (settings.detailView !== false) {
             columnCount += 1;
         }
 
@@ -2447,6 +2627,52 @@
      */
     function getSelected($table) {
         return $($table).data('bsTable').selected || []
+    }
+
+    /**
+     * Retrieves an array of expanded rows from the specified table element.
+     *
+     * @param {jQuery} $table - The table element from which to retrieve expanded rows.
+     * @return {Array} An array containing the expanded rows of the table. If no rows are expanded, returns an empty array.
+     */
+    function getExpanded($table) {
+        return $($table).data('bsTable').expanded || []
+    }
+
+    /**
+     * Removes the expanded state for a specific row in the table.
+     *
+     * @param {jQuery} $tableElement - The table element where the operation is performed.
+     * @param {Object} row - The row object containing data, including the field to be removed from the expanded list.
+     * @return {void} This function does not return any value.
+     */
+    function removeExpanded($tableElement, row) {
+        const $table = $($tableElement);
+        const data = $table.data('bsTable');
+        const setup = $.bsTable.detailViewDefaults;
+        const field = row[setup.field];
+        if (data.expanded.includes(field)) {
+            data.expanded = data.expanded.filter(item => item !== field);
+            $table.data('bsTable', data);
+        }
+    }
+
+    /**
+     * Adds a field of a specified row to the list of expanded fields if it is not already included.
+     *
+     * @param {jQuery} $tableElement - The table element to which the operation applies.
+     * @param {Object} row - The row from which the field to be expanded is derived.
+     * @return {void} This function does not return a value.
+     */
+    function addExpanded($tableElement, row) {
+        const $table = $($tableElement);
+        const data = $table.data('bsTable');
+        const setup = $.bsTable.detailViewDefaults;
+        const field = row[setup.field];
+        if (!data.expanded.includes(field)) {
+            data.expanded.push(field);
+            $table.data('bsTable', data);
+        }
     }
 
     /**
@@ -2810,8 +3036,10 @@
      */
     function onClickCellAndRow($tdElement) {
         const $td = $($tdElement);
+
+
         // Ignore this click if the cell is a check item cell (checkbox/radio)
-        if ($td.attr('data-check-item')) {
+        if ($td.attr('data-check-item') || $td.attr('data-detail-item')) {
             return;
         }
 
@@ -2832,6 +3060,7 @@
 
         // === TRIGGER EVENTS/CALLBACKS ===
 
+
         // Fire the 'click-row' event and user callback (row, $tr, field)
         triggerEvent($table, 'click-row', row, $tr, column.field);
         $.bsTable.utils.executeFunction(settings.onClickRow, row, $tr, column.field);
@@ -2847,6 +3076,11 @@
             const $checkTd = $tr.find('td[data-check-item]:first');
             // Simulate a click on the check item to synchronize selection
             handleCheckItemClicked($checkTd);
+        }
+
+        if (settings.detailView !== false && settings.detailView.clickRowToToggle === true) {
+            const $checkTd = $tr.find('td[data-detail-item]:first');
+            toggleExpandOrCollapse($checkTd, true);
         }
     }
 
@@ -3000,6 +3234,56 @@
         }
     }
 
+    function toggleExpandOrCollapse($tdElement, trigger = true) {
+        const $td = $($tdElement);
+        // Get the outer wrapper element associated with this cell
+        const $wrapper = $(getClosestWrapper($td));
+        // Get the related table using the wrapper's ID
+        const $table = $(getTableByWrapperId($wrapper.attr('id')));
+        // Retrieve current settings for this table
+        const settings = getSettings($table);
+        // Exit if check items are not enabled
+        if (settings.detailView === false) {
+            return;
+        }
+
+        const $icon = $td.find(`.${bsTableClasses.checkIcon}`).removeClass(settings.icons.expand).removeClass(settings.icons.collapse);
+
+        let expanded = $td.attr('data-detail-item') === 'true'; // Will indicate if this row will be selected after this function
+        // Get configuration for check/radio items
+        const checkItemConfig = settings.detailView;
+        // Find the table row and its associated data
+        const $tr = $td.closest('tr');
+        const row = $tr.data('row');
+
+        if (expanded) {
+            $icon.addClass(settings.icons.expand);
+            $td.attr('data-detail-item', 'false');
+            const $oldTd = $($tr.next().children('td'));
+            if (trigger) {
+                triggerEvent($table, 'collapse-row', row, $td);
+                $.bsTable.utils.executeFunction(settings.onCollapseRow, $tr.attr('data-index'), row, $oldTd);
+            }
+            $tr.next().remove();
+            removeExpanded($table, row);
+        } else {
+            $icon.addClass(settings.icons.collapse);
+            addExpanded($table, row);
+            $td.attr('data-detail-item', 'true');
+            const newTr = $('<tr>').insertAfter($tr);
+
+            const $newTd = $('<td>', {
+                colspan: getCountColumns($table)
+            }).appendTo(newTr);
+
+            checkItemConfig.formatter($tr.attr('data-index'), row, $newTd);
+            if (trigger) {
+                triggerEvent($table, 'expand-row', row, $td);
+                $.bsTable.utils.executeFunction(settings.onExpandRow, $tr.attr('data-index'), row, $newTd);
+            }
+        }
+    }
+
     /**
      * Executes a search operation by retrieving settings and refreshing the associated table.
      *
@@ -3047,6 +3331,7 @@
             }
         });
     }
+
 
     /**
      * Registers global table-related event listeners that handle various actions
@@ -3097,7 +3382,7 @@
             ].join(' '), `.${bsTableClasses.wrapper} [data-child="true"]`, function (e) {
                 preventDefault(e);
             })
-            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr[data-index] > td:not([data-check-item])`, function (e) {
+            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody > tr[data-index] > td:not([data-check-item],[data-detail-item])`, function (e) {
                 // Check whether the target is a link, button, input, textarea or select
                 if (
                     e.target.tagName === 'A' || $(e.target).closest('a').length > 0 ||
@@ -3124,6 +3409,10 @@
             .on('click' + namespace, `.${bsTableClasses.wrapper} tbody td[data-check-item]`, function (e) {
                 preventDefault(e);
                 handleCheckItemClicked($(e.currentTarget));
+            })
+            .on('click' + namespace, `.${bsTableClasses.wrapper} tbody td[data-detail-item]`, function (e) {
+                preventDefault(e);
+                toggleExpandOrCollapse($(e.currentTarget));
             })
             .on('click' + namespace, [
                 `.${bsTableClasses.wrapper} thead th[data-check-item-all]`,

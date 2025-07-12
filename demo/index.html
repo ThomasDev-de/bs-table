@@ -329,6 +329,19 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 onError(error){
                     alert(error);
                 },
+                detailView: {
+                    field: 'option',
+                    position: 'end',
+                    clickRowToToggle: true,
+                    formatter(index, row, $td) {
+                        const ret = ['<div class="d-flex flex-column">'];
+                        ret.push(`<h4 class="text-warning">${row.option}</h4>`);
+                        ret.push(`<div class="d-flex align-items-center"><span class="me-2">Type: </span><span class="badge text-bg-primary text-nowrap">${row.type}</span></div>`);
+                        ret.push(`<div class="d-flex align-items-center"><span class="me-2">Default: </span><span class="badge text-bg-secondary text-nowrap">${row.default}</span></div>`);
+                        ret.push('</div>');
+                        $td.html(ret.join(''));
+                    }
+                },
                 checkItemsConfig: {
                     type: 'checkbox',
                     field: 'option',
