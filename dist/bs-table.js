@@ -651,7 +651,10 @@
 
         // refresh the columns
         settings.columns = columns;
-
+        if($.bsTable.utils.isValueEmpty(settings.columns))
+        {
+            settings.data = [];
+        }
         // handle table height
         const height = settings.height || $($table).data('height') || parseInt($($table).css('height'), 10);
         if (!isNaN(height) && height !== 0) {
