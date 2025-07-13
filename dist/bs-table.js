@@ -4,6 +4,7 @@
     $.bsTable = {
         version: '1.0.2',
         globalEventsBound: false,
+        validViews: ['rows', 'columns', 'custom'],
         setDefaults(options) {
             this.defaults = $.extend(true, {}, this.defaults, options || {});
         },
@@ -17,6 +18,8 @@
             return this.checkItemsConfigDefaults;
         },
         defaults: {
+            startView: 'rows', // rows, columns, custom
+            views: ['rows', 'columns', 'custom'],
             height: undefined,
             ajaxOptions: undefined,
             classes: 'table',
@@ -719,7 +722,7 @@
                 $tds.each(function (tdIndex) {
                     if (tdIndex < maxColumns) {
                         const $td = $(this);
-                        const column = columns[tdIndex] || { field: `extra_column_${tdIndex + 1}` }; // Fallback column.
+                        const column = columns[tdIndex] || {field: `extra_column_${tdIndex + 1}`}; // Fallback column.
                         row[column.field] = $td.html().trim(); // Map the `<td>` content to the corresponding column field.
                     }
                 });
@@ -767,6 +770,7 @@
         if ($.bsTable.utils.isValueEmpty(settings.columns)) {
             settings.data = [];
         }
+
         // handle table height
         const height = settings.height || $($table).data('height'); // Ignoriere css('height')
 
@@ -774,6 +778,19 @@
             settings.height = height;
         } else {
             settings.height = undefined;
+        }
+
+        // check startView and possible views
+        if (!settings.startView || !$.bsTable.validViews.includes(settings.startView)) {
+            settings.startView = 'rows';
+        }
+        if (Array.isArray(settings.views)) {
+            const validViews = $.bsTable.validViews.filter(view => settings.views.includes(view));
+            if (!validViews.includes(settings.startView)) {
+                validViews.push(settings.startView);
+            }
+        } else {
+            settings.views = [settings.startView];
         }
 
         setSettings($table, settings);
@@ -3410,7 +3427,7 @@
             const $newTd = $('<td>', {
                 colspan: getCountColumns($table)
             }).appendTo(newTr);
-            $.bsTable.utils.executeFunction(checkItemConfig.formatter,$tr.attr('data-index'), row, $newTd);
+            $.bsTable.utils.executeFunction(checkItemConfig.formatter, $tr.attr('data-index'), row, $newTd);
             // checkItemConfig.formatter($tr.attr('data-index'), row, $newTd);
             if (trigger) {
                 triggerEvent($table, 'expand-row', row, $td);
