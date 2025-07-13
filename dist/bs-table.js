@@ -44,6 +44,7 @@
             customView: false,
             onCustomView(_rows, _$td) {
             },
+            idField: undefined,
             url: null,
             data: null,
             columns: [],
@@ -235,7 +236,7 @@
             },
             executeFunction(functionOrName, ...args) {
                 if (!functionOrName) {
-                    console.warn('No functional name or functional reference!');
+                    // console.warn('No functional name or functional reference!');
                     return undefined;
                 }
 
@@ -345,8 +346,7 @@
             setToggleCustomView($table, customView);
             setToggleView($table, cardView);
             setSettings($table, newSettings);
-            checkCheckItemsConfig($table);
-            checkDetailViewConfig($table);
+            makeSettingsValid($table);
             refresh($table);
         },
         /**
@@ -609,6 +609,36 @@
         const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
         const settings = $.extend(true, {}, $.bsTable.getDefaults(), $($table).data() || {}, options || {});
 
+
+        const bsTable = {
+            settings: settings,
+            toggleView: settings.cardView === true,
+            toggleCustomView: settings.customView === true,
+            expanded: [],
+            response: [],
+            selected: []
+        };
+
+        // Initialize the table with data
+        $($table).data('bsTable', bsTable);
+
+        makeSettingsValid($table);
+
+        // Create Structure Elements of the Table
+        build.structure($table);
+
+        // Update table (e.g. load or render data)
+        refresh($table);
+    }
+
+    /**
+     * Validates and cleans up the settings configuration for the provided table.
+     *
+     * @param {jQuery} $table - The table object containing the settings configuration to be validated and adjusted.
+     * @return {void} No return value. This function modifies the provided table object in place.
+     */
+    function makeSettingsValid($table) {
+        const settings = getSettings($table);
         // Make sure that all columns are fully populated
         const columns = [];
         if (settings.columns && Array.isArray(settings.columns)) {
@@ -630,28 +660,12 @@
             settings.height = undefined; // Ignore invalid values (NaN, 0)
         }
 
-        const bsTable = {
-            settings: settings,
-            toggleView: settings.cardView === true,
-            toggleCustomView: settings.customView === true,
-            expanded: [],
-            response: [],
-            selected: []
-        };
-
-        // Initialize the table with data
-        $($table).data('bsTable', bsTable);
+        setSettings($table, settings);
 
         // Clean the CheckitemConfig
         checkCheckItemsConfig($table);
         // Clean the detailViewConfig
         checkDetailViewConfig($table);
-
-        // Create Structure Elements of the Table
-        build.structure($table);
-
-        // Update table (e.g. load or render data)
-        refresh($table);
     }
 
     /**
@@ -691,7 +705,6 @@
         if (typeof settings.detailView !== 'object') {
             const error = `Invalid detailView configuration. Please provide an object.`;
             triggerEvent($table, 'error', error);
-            $.bsTable.utils.executeFunction(settings.onError, error);
             isValid = false;
         }
 
@@ -699,12 +712,16 @@
             // Merge user configuration with defaults
             userConfig = $.extend(true, {}, $.bsTable.detailViewDefaults, settings.detailView || {});
 
+            // If Field is not specified, take Idfield from the settings
+            if (!userConfig.hasOwnProperty('field') || !userConfig.field) {
+                userConfig.field = settings.idField;
+            }
+
             // Ensure the "field" property exists and matches one of the defined columns
             isValid = typeof userConfig.field === 'string' && settings.columns.some(column => column.field === userConfig.field);
             if (!isValid) {
                 const error = `DetailView cannot be displayed. Missing or invalid property field: ${userConfig.field}`;
                 triggerEvent($table, 'error', error);
-                $.bsTable.utils.executeFunction(settings.onError, error);
             }
         }
 
@@ -745,6 +762,10 @@
 
         // Merge user configuration with defaults, ensuring deep copy
         const userConfig = $.extend(true, {}, defaultCheckItemsConfig, settings.checkItemsConfig || {});
+        // If Field is not specified, take Idfield from the settings
+        if (!userConfig.hasOwnProperty('field') || !userConfig.field) {
+            userConfig.field = settings.idField;
+        }
         let isValid = true;
         let isCheckbox = false;
 
@@ -783,7 +804,6 @@
                     'Check item names must be a string.'
                 ].join(' ');
                 triggerEvent($table, 'error', error);
-                $.bsTable.utils.executeFunction(settings.onError, error)
             }
         }
 
@@ -797,7 +817,6 @@
                     'The field must be found in one of the settings.collumns.'
                 ].join(' ');
                 triggerEvent($table, 'error', error);
-                $.bsTable.utils.executeFunction(settings.onError, error)
             }
         }
 
@@ -955,13 +974,11 @@
             .then(() => {
                 const response = getResponse($table);
                 triggerEvent($table, 'load-success', response);
-                $.bsTable.utils.executeFunction(settings.onLoadSuccess, response);
                 build.table($table);
             })
             .catch(error => {
                 const errorMsg = "Error when retrieving the data: " + error;
                 triggerEvent($table, 'load-error', errorMsg);
-                $.bsTable.utils.executeFunction(settings.onLoadError, errorMsg);
             })
             .finally(() => {
                 methods.hideLoading($table);
@@ -1069,7 +1086,6 @@
 
             if (triggerRefresh) {
                 triggerEvent($table, 'refresh', params);
-                $.bsTable.utils.executeFunction(settings.onRefresh, params);
             }
 
             // Processing of local data
@@ -1906,12 +1922,12 @@
                 console.groupEnd();
             }
 
-            if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
+            // if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
                 this.thead($table, currentPageData);
                 this.tbody($table, currentPageData);
                 this.tfoot($table, currentPageData);
                 this.hiddenSelectedInputs($table);
-            }
+            // }
 
             const tableClasses = [];
             if (typeof settings.classes === 'string') {
@@ -2030,7 +2046,6 @@
                 }
 
                 triggerEvent($table, 'post-header', $thead, $table);
-                $.bsTable.utils.executeFunction(settings.onPostHeader, $thead, $table);
             }
         },
         /**
@@ -2114,7 +2129,6 @@
             const selected = getSelected($table);
             const expandedElements = getExpanded($table);
             triggerEvent($table, 'pre-body', rows, $table);
-            $.bsTable.utils.executeFunction(settings.onPreBody, rows, $table);
             const hasColumns = settings.columns && settings.columns.length;
             const $tbody = $($table.children('tbody')).empty();
             const inToggleView = getToggleView($table);
@@ -2137,7 +2151,9 @@
             if (!hasResponse) {
                 const $tr = $('<tr></tr>').appendTo($tbody);
                 $('<td>', {
-                    colspan: getCountColumns($table), class: 'text-center', html: settings.formatNoMatches(),
+                    colspan: getCountColumns($table),
+                    class: 'text-center', 
+                    html: settings.formatNoMatches(),
                 }).appendTo($tr);
             } else if (inToggleCustomView) {
                 const $tr = $('<tr></tr>').appendTo($tbody);
@@ -2145,7 +2161,6 @@
                     colspan: getCountColumns($table),
                 }).appendTo($tr);
                 triggerEvent($table, 'custom-view', rows, $td);
-                $.bsTable.utils.executeFunction(settings.onCustomView, rows, $td);
             } else {
                 let trIndex = 0;
                 rows.forEach(row => {
@@ -2191,7 +2206,6 @@
 
             // Nur die Daten der aktuellen Seite an onPostBody übergeben
             triggerEvent($table, 'post-body', rows, $table);
-            $.bsTable.utils.executeFunction(settings.onPostBody, rows, $table);
         },
         /**
          * Creates and appends a table cell (`td`) to the provided table row (`tr`) while applying cell-specific properties and formatting.
@@ -2340,7 +2354,6 @@
 
                 // Nur die Daten der aktuellen Seite an onPostFooter übergeben
                 triggerEvent($table, 'post-footer', $tfoot, $table);
-                $.bsTable.utils.executeFunction(settings.onPostFooter, $tfoot, $table);
             }
         },
         /**
@@ -3021,7 +3034,6 @@
         }
 
         triggerEvent($table, 'sort', settings.sortName, settings.sortOrder);
-        $.bsTable.utils.executeFunction(settings.onSort, settings.sortName, settings.sortOrder);
         setSettings($table, settings);
         refresh($table);
     }
@@ -3064,11 +3076,9 @@
 
         // Fire the 'click-row' event and user callback (row, $tr, field)
         triggerEvent($table, 'click-row', row, $tr, column.field);
-        $.bsTable.utils.executeFunction(settings.onClickRow, row, $tr, column.field);
 
         // Fire the 'click-cell' event and user callback (field, value, row, $td)
         triggerEvent($table, 'click-cell', column.field, value, row, $td);
-        $.bsTable.utils.executeFunction(settings.onClickCell, column.field, value, row, $td);
 
         // === OPTIONAL: Select row when clicking anywhere in the row, if enabled ===
         // If table uses check items and row click should trigger selection
@@ -3136,7 +3146,17 @@
         if (eventName !== 'all') {
             const allEvent = $.Event(`all${namespace}`, {target: targetTable});
             $table.trigger(allEvent, [eventName + namespace, ...args]);
+            $.bsTable.utils.executeFunction(settings.onAll,eventName + namespace, ...args);
             allEvent.stopPropagation();
+
+            // Automatically map the event name to a settings handler and execute it
+            // Convert event name to CamelCase + add "on" prefix (e.g., "show-info-window" -> "onShowInfoWindow")
+            const eventFunctionName = `on${eventName
+                .split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join('')}`;
+
+            $.bsTable.utils.executeFunction(settings[eventFunctionName], ...args);
         }
     }
 
@@ -3228,10 +3248,8 @@
         // Trigger the relevant event and execute callback for check/uncheck
         if (checked) {
             triggerEvent($table, 'check', row, $td);
-            $.bsTable.utils.executeFunction(settings.onCheck, row, $td);
         } else {
             triggerEvent($table, 'uncheck', row, $td);
-            $.bsTable.utils.executeFunction(settings.onUncheck, row, $td);
         }
     }
 
@@ -3263,7 +3281,6 @@
             const $oldTd = $($tr.next().children('td'));
             if (trigger) {
                 triggerEvent($table, 'collapse-row', row, $td);
-                $.bsTable.utils.executeFunction(settings.onCollapseRow, $tr.attr('data-index'), row, $oldTd);
             }
             $tr.next().remove();
             removeExpanded($table, row);
@@ -3280,7 +3297,6 @@
             checkItemConfig.formatter($tr.attr('data-index'), row, $newTd);
             if (trigger) {
                 triggerEvent($table, 'expand-row', row, $td);
-                $.bsTable.utils.executeFunction(settings.onExpandRow, $tr.attr('data-index'), row, $newTd);
             }
         }
     }

@@ -78,6 +78,7 @@
 
 <div class="container py-5 mt-5">
     <h1>$.fn.bsTable</h1>
+    <table id="table_table"></table>
     <p>The plugin was born from the idea of <a href="https://github.com/wenzhixin/bootstrap-table">wenzhixin/bootstrap-table</a>.
     </p>
     <p>
@@ -130,6 +131,7 @@
 <script>
     $(document).ready(function () {
 
+        $('#table_table').bsTable()
         async function getDatas() {
             return new Promise((resolve, reject) => {
                 $.getJSON('data.json', function (data) {
