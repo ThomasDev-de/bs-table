@@ -799,6 +799,8 @@
         checkCheckItemsConfig($table);
         // Clean the detailViewConfig
         checkDetailViewConfig($table);
+
+        // console.log(settings);
     }
 
     /**
