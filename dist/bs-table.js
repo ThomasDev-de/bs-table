@@ -580,55 +580,168 @@
 
     /**
      * Initializes a table with the given settings or method, ensuring proper configuration
-     * for options, columns, and height.
-     * If the table has already been initialized,
-     * it updates the options if provided.
+     * for options, columns, and height. If the table has already been initialized, it updates
+     * the options if a valid configuration object is provided.
      *
-     * @param {jQuery} $table - The jQuery table element to be initialized.
-     * @param {Object|string} optionsOrMethod - The configuration options for the table
-     *                                           or the method to invoke on the table.
-     * @return {void} This method does not return anything.
-     * It sets up the table
-     *                element, configures its settings, and manages its initialization state.
+     * @param {jQuery} $table - The jQuery element representing the table that needs to be initialized.
+     * @param {Object|string} optionsOrMethod - Either:
+     *                                           1. An options object to configure the table (used during initialization), or
+     *                                           2. A string specifying a method to invoke (for already initialized tables).
+     * @return {void} The function does not return anything directly. Instead, it configures or modifies
+     *                the table element, updates its settings, and manages its initialization state.
      */
     function initTable($table, optionsOrMethod) {
-
-        // Check if the table is already initialized
+        // **Step 1: Check if the table has already been initialized.**
         if ($($table).data('bsTable')) {
-            // If the table has already been initialized and settings have been passed anyway,
-            // refresh the settings
+            // If the table is already initialized and a configuration object is passed:
             if (typeof optionsOrMethod === 'object') {
+                // Refresh the table's options/settings using the provided configuration.
                 methods.refreshOptions($table, optionsOrMethod);
             }
+            // Exit early to avoid reinitialization.
             return;
         }
-        // If global events have not been initialized, do so once
+
+        // **Step 2: Ensure global events are initialized once for all tables.**
         if (!$.bsTable.globalEventsBound) {
-            registerGlobalTableEvents(); // Globale Initialisierung binden (nur einmalig)
+            registerGlobalTableEvents(); // Bind global initialization events (executed only once).
         }
+
+        // **Step 3: Resolve configuration options.**
+        // If a configuration object is provided, use it; otherwise, use an empty object.
         const options = typeof optionsOrMethod === 'object' ? optionsOrMethod : {};
+        // Merge defaults, table-specific data (data-* attributes), and provided options into a single settings object.
         const settings = $.extend(true, {}, $.bsTable.getDefaults(), $($table).data() || {}, options || {});
 
+        // **Step 4: Handle missing table data or column definitions.**
+        // If no `data` and no `columns` are already defined in the settings, extract them from the existing HTML table.
+        if (!settings.data && !settings.columns.length) {
+            // Use the `getRawData` helper to extract existing table data and structure.
+            const raw = getRawData($table);
+            settings.data = raw.data;           // Extracted data (rows).
+            settings.columns = raw.columns;     // Extracted column definitions.
+            settings.showHeader = raw.showHeader; // Whether a <thead> exists.
+            settings.showFooter = raw.showFooter; // Whether a <tfoot> exists.
 
+            // Log the extracted columns for debugging purposes.
+            console.log(settings.columns);
+        }
+
+        // **Step 5: Create a `bsTable` object to store the table's state and settings.**
         const bsTable = {
-            settings: settings,
-            toggleView: settings.cardView === true,
-            toggleCustomView: settings.customView === true,
-            expanded: [],
-            response: [],
-            selected: []
+            settings: settings,                 // The full configuration object for the table.
+            toggleView: settings.cardView === true, // Determine if the card view mode should be enabled.
+            toggleCustomView: settings.customView === true, // Determine if the custom view mode should be enabled.
+            expanded: [],                       // Track expanded rows (if applicable).
+            response: [],                       // Store AJAX responses (if applicable).
+            selected: [],                       // Track selected rows (if applicable).
         };
 
-        // Initialize the table with data
+        // **Step 6: Attach the table's state object to the DOM element.**
         $($table).data('bsTable', bsTable);
 
+        // **Step 7: Validate and process table settings before applying them.**
         makeSettingsValid($table);
 
-        // Create Structure Elements of the Table
+        // **Step 8: Build the structural elements of the table.**
+        // This step ensures the table is visually constructed with all required DOM elements and styles.
         build.structure($table);
 
-        // Update table (e.g. load or render data)
+        // **Step 9: Refresh the table's content.**
+        // This involves loading or rendering the table data based on the updated settings.
         refresh($table);
+    }
+
+    /**
+     * Extracts raw data from an HTML table by parsing its structure: `<thead>`, `<tbody>`, and `<tfoot>`.
+     * Generates a list of column definitions and rows of data while handling cases with missing headers or inconsistent rows.
+     *
+     * @param {jQuery} $table - The jQuery object representing the HTML table element.
+     * @returns {Object} - An object containing column definitions, table data (each row as an object),
+     *                     and metadata about the presence of a header and footer.
+     */
+    function getRawData($table) {
+        // Select direct child `<thead>`, `<tbody>`, and `<tfoot>` elements of the table.
+        const $thead = $table.children('thead');
+        const $tbody = $table.children('tbody');
+        const $tfoot = $table.children('tfoot');
+
+        // Arrays to store column definitions and rows of data from the table.
+        const columns = [];
+        const data = [];
+
+        // **Step 1: Extract columns from `<thead>` (if it exists).**
+        if ($thead.length) {
+            // Loop through all `<th>` elements in `<thead>` and extract column definitions.
+            $thead.children('tr').children('th').each(function (index) {
+                const $th = $(this);
+                // Merge default column properties with data attributes from `<th>`.
+                const column = $.extend(true, {}, $.bsTable.getColumnDefaults(), $th.data() || {});
+
+                // Ensure each column has a `field` and `title` property as fallbacks.
+                column.field = column.field || `column_${index + 1}`;
+                column.title = column.title || $th.text().trim() || `Column ${index + 1}`;
+
+                // Add the column definition to the columns array.
+                columns.push(column);
+            });
+        }
+
+        // **Step 2: Handle missing headers by creating columns from `<tbody>` (if no `<thead>` exists).**
+        if (!columns.length && $tbody.length) {
+            // Use the first `<tr>` in `<tbody>` to create placeholder columns.
+            const $firstRow = $tbody.children('tr:first');
+            $firstRow.children('td').each(function (index) {
+                // Generate default column settings for each `<td>` cell in the first row.
+                const column = $.extend(true, {}, $.bsTable.getColumnDefaults(), {});
+                column.field = `column_${index + 1}`;
+                column.title = `Column ${index + 1}`;
+                columns.push(column);
+            });
+        }
+
+        // At this point, the `columns` array is guaranteed to either:
+        // - Contain column definitions (from `<thead>` or generated as fallbacks), OR
+        // - Be empty if the table has no `<thead>` or `<tbody>`.
+
+        // **Step 3: Extract rows of data from `<tbody>` (if it exists).**
+        if ($tbody.length) {
+            const maxColumns = columns.length; // Determine the maximum expected columns from the header.
+
+            // Process each `<tr>` in `<tbody>`.
+            $tbody.children('tr').each(function (rowIndex) {
+                const $tr = $(this);
+                const row = {}; // Create an object to represent the row's data.
+
+                const $tds = $tr.children('td');
+
+                // **Step 3a: Process existing `<td>` cells (ignore extra cells).**
+                $tds.each(function (tdIndex) {
+                    if (tdIndex < maxColumns) {
+                        const $td = $(this);
+                        const column = columns[tdIndex] || { field: `extra_column_${tdIndex + 1}` }; // Fallback column.
+                        row[column.field] = $td.html().trim(); // Map the `<td>` content to the corresponding column field.
+                    }
+                });
+
+                // **Step 3b: Fill missing cells if the row has fewer `<td>` than the header specifies.**
+                for (let i = $tds.length; i < maxColumns; i++) {
+                    const column = columns[i];
+                    row[column.field] = null; // Set missing columns to `null`.
+                }
+
+                // Add the processed row to the `data` array.
+                data.push(row);
+            });
+        }
+
+        // **Step 4: Return the extracted data.**
+        return {
+            showHeader: $thead.length > 0 && $thead.children('tr').length > 0, // Indicate if the table has a `<thead>`.
+            showFooter: $tfoot.length > 0, // Indicate if the table has a `<tfoot>`.
+            columns: columns, // Array of column definitions.
+            data: data // Array of row data objects.
+        };
     }
 
     /**
@@ -651,16 +764,16 @@
 
         // refresh the columns
         settings.columns = columns;
-        if($.bsTable.utils.isValueEmpty(settings.columns))
-        {
+        if ($.bsTable.utils.isValueEmpty(settings.columns)) {
             settings.data = [];
         }
         // handle table height
-        const height = settings.height || $($table).data('height') || parseInt($($table).css('height'), 10);
+        const height = settings.height || $($table).data('height'); // Ignoriere css('height')
+
         if (!isNaN(height) && height !== 0) {
-            settings.height = height; // Apply a valid amount
+            settings.height = height;
         } else {
-            settings.height = undefined; // Ignore invalid values (NaN, 0)
+            settings.height = undefined;
         }
 
         setSettings($table, settings);
@@ -1905,7 +2018,8 @@
             if (settings.debug) {
                 console.groupCollapsed("Render Table");
             }
-            if (typeof settings.height !== 'undefined') {
+            if (settings.height) {
+                // alert(settings.height)
                 $(getResponsiveWrapper($table)).css('max-height', settings.height);
             }
             const wrapper = $(getClosestWrapper($table));
@@ -1926,10 +2040,10 @@
             }
 
             // if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
-                this.thead($table, currentPageData);
-                this.tbody($table, currentPageData);
-                this.tfoot($table, currentPageData);
-                this.hiddenSelectedInputs($table);
+            this.thead($table, currentPageData);
+            this.tbody($table, currentPageData);
+            this.tfoot($table, currentPageData);
+            this.hiddenSelectedInputs($table);
             // }
 
             const tableClasses = [];
@@ -2155,7 +2269,7 @@
                 const $tr = $('<tr></tr>').appendTo($tbody);
                 $('<td>', {
                     colspan: getCountColumns($table),
-                    class: 'text-center', 
+                    class: 'text-center',
                     html: settings.formatNoMatches(),
                 }).appendTo($tr);
             } else if (inToggleCustomView) {
@@ -3149,7 +3263,7 @@
         if (eventName !== 'all') {
             const allEvent = $.Event(`all${namespace}`, {target: targetTable});
             $table.trigger(allEvent, [eventName + namespace, ...args]);
-            $.bsTable.utils.executeFunction(settings.onAll,eventName + namespace, ...args);
+            $.bsTable.utils.executeFunction(settings.onAll, eventName + namespace, ...args);
             allEvent.stopPropagation();
 
             // Automatically map the event name to a settings handler and execute it
@@ -3296,8 +3410,8 @@
             const $newTd = $('<td>', {
                 colspan: getCountColumns($table)
             }).appendTo(newTr);
-
-            checkItemConfig.formatter($tr.attr('data-index'), row, $newTd);
+            $.bsTable.utils.executeFunction(checkItemConfig.formatter,$tr.attr('data-index'), row, $newTd);
+            // checkItemConfig.formatter($tr.attr('data-index'), row, $newTd);
             if (trigger) {
                 triggerEvent($table, 'expand-row', row, $td);
             }

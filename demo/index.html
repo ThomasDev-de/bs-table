@@ -78,7 +78,6 @@
 
 <div class="container py-5 mt-5">
     <h1>$.fn.bsTable</h1>
-    <table id="table_table"></table>
     <p>The plugin was born from the idea of <a href="https://github.com/wenzhixin/bootstrap-table">wenzhixin/bootstrap-table</a>.
     </p>
     <p>
@@ -131,7 +130,6 @@
 <script>
     $(document).ready(function () {
 
-        $('#table_table').bsTable()
         async function getDatas() {
             return new Promise((resolve, reject) => {
                 $.getJSON('data.json', function (data) {
@@ -335,14 +333,7 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                     field: 'option',
                     position: 'start',
                     clickRowToToggle: true,
-                    formatter(index, row, $td) {
-                        const ret = ['<div class="d-flex flex-column">'];
-                        ret.push(`<h4 class="text-warning">${row.option}</h4>`);
-                        ret.push(`<div class="d-flex align-items-center"><span class="me-2">Type: </span><span class="badge text-bg-primary text-nowrap">${row.type}</span></div>`);
-                        ret.push(`<div class="d-flex align-items-center"><span class="me-2">Default: </span><span class="badge text-bg-secondary text-nowrap">${row.default}</span></div>`);
-                        ret.push('</div>');
-                        $td.html(ret.join(''));
-                    }
+                    formatter:detailViewFormatter
                 },
                 checkItemsConfig: {
                     type: 'checkbox',
@@ -378,7 +369,14 @@ $('#table').on(${row.global || '`event-name`'}, function(e${row.params ? `, ${ro
                 console.log('getSelections', tableTableOptions.bsTable('getSelections'));
             }, 5000)
         });
-
+window.detailViewFormatter = function(index, row, $td) {
+    const ret = ['<div class="d-flex flex-column">'];
+    ret.push(`<h4 class="text-warning">${row.option}</h4>`);
+    ret.push(`<div class="d-flex align-items-center"><span class="me-2">Type: </span><span class="badge text-bg-primary text-nowrap">${row.type}</span></div>`);
+    ret.push(`<div class="d-flex align-items-center"><span class="me-2">Default: </span><span class="badge text-bg-secondary text-nowrap">${row.default}</span></div>`);
+    ret.push('</div>');
+    $td.html(ret.join(''));
+}
         function formatFirstRow(value, row, index, $td) {
             // $td.addClass('table-active');
             const ret = [
