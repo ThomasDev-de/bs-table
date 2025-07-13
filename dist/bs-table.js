@@ -64,8 +64,8 @@
                 check: 'bi bi-check-square fw-bold',
                 uncheckAll: 'bi bi-square fw-bold',
                 uncheck: 'bi bi-square fw-bold',
-                expand: 'bi bi-plus-lg',
-                collapse: 'bi bi-dash-lg',
+                expand: 'bi bi-chevron-down',
+                collapse: 'bi bi-chevron-up',
             },
             caption: null,
             rowStyle(_row, _index, _$tr) {
@@ -323,7 +323,7 @@
         pagination: 'bs-table-pagination', // Wrapper for the pagination controls
         paginationDetails: 'bs-table-pagination-details', // Wrapper for detailed pagination information
         wrapperSelection: 'bs-table-selection', // Wrapper for detailed pagination information
-        checkIcon: 'bs-table-check-icon'
+        checkIcon: 'bs-table-icon'
     };
 
     /**
@@ -346,6 +346,7 @@
             setToggleView($table, cardView);
             setSettings($table, newSettings);
             checkCheckItemsConfig($table);
+            checkDetailViewConfig($table);
             refresh($table);
         },
         /**
