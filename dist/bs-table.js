@@ -1157,7 +1157,7 @@
         const $table = $($jqTable);
         const settings = getSettings($table);
         if (settings.debug) {
-            console.groupCollapsed("fetchData");
+            console.log("fetchData");
             console.log("Starte fetchData für Tabelle:", $table); // DEBUG
         }
         return new Promise((resolve, reject) => {
@@ -1268,7 +1268,7 @@
 
                     setResponse($table, responseAfter ?? responseBefore);
                     if (settings.debug) {
-                        console.groupEnd();
+                        // console.groupEnd();
                     }
                     resolve();
                     return;
@@ -1292,7 +1292,7 @@
 
                     setResponse($table, responseAfter ?? responseBefore);
                     if (settings.debug) {
-                        console.groupEnd();
+                        // console.groupEnd();
                     }
                     resolve();
                     return;
@@ -1309,7 +1309,7 @@
 
                 setResponse($table, responseAfter ?? responseBefore);
                 if (settings.debug) {
-                    console.groupEnd();
+                    // console.groupEnd();
                 }
                 resolve();
                 return;
@@ -2035,7 +2035,7 @@
             const $table = $($tableElement);
             const settings = getSettings($table);
             if (settings.debug) {
-                console.groupCollapsed("Render Table");
+                console.log("Render Table");
             }
             if (settings.height) {
                 // alert(settings.height)
@@ -2055,7 +2055,7 @@
                 console.log("Page Size:", pageSize);
                 console.log("Page Number:", pageNumber);
                 console.log("Rows to Render:", currentPageData.length, currentPageData);
-                console.groupEnd();
+                // console.groupEnd();
             }
 
             // if (settings.columns && Array.isArray(settings.columns) && settings.columns.length > 0) {
@@ -2117,7 +2117,8 @@
                 $btnContainer.removeClass('ms-2');
             }
 
-            const showPagination = settings.pagination !== false && totalRows > pageSize;            if (showPagination) {
+            const showPagination = settings.pagination !== false && totalRows > pageSize;
+            if (showPagination) {
                 this.paginationDetails($table, totalRows);
                 if (pageSize !== 0) {
                     const $paginationHtml = $(this.pagination($table, totalRows));
