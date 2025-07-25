@@ -1386,18 +1386,28 @@
                         }
                         $table.data('xhr', $.ajax(defaultAjaxOptions)
                             .done(response => {
-                                const processedResponse = Array.isArray(response) ? {
-                                    rows: response,
-                                    total: response.length
-                                } : {...response, rows: response.rows || [], total: response.total || 0};
+                                try {
+                                    // JSON-String zu einem Objekt parsen (falls notwendig)
+                                    const jsonResponse = typeof response === 'string' ? JSON.parse(response) : response;
 
-                                if (settings.debug) {
-                                    console.log("API-Antwort von String-URL erhalten:", processedResponse); // DEBUG
+                                    // Verarbeiteten JSON-Inhalt in das erwartete Format umwandeln
+                                    const processedResponse = Array.isArray(jsonResponse)
+                                        ? { rows: jsonResponse, total: jsonResponse.length }
+                                        : { ...jsonResponse, rows: jsonResponse.rows || [], total: jsonResponse.total || 0 };
+
+                                    if (settings.debug) {
+                                        console.log("API-Antwort erfolgreich verarbeitet:", processedResponse); // DEBUG
+                                    }
+
+                                    const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
+                                    setResponse($table, responseAfter ?? processedResponse);
+                                    resolve();
+                                } catch (error) {
+                                    if (settings.debug) {
+                                        console.error("JSON-Parsing-Fehler:", error); // DEBUG
+                                    }
+                                    reject(new Error("Fehler beim Parsen der JSON-Antwort: " + error.message));
                                 }
-
-                                const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                                setResponse($table, responseAfter ?? processedResponse);
-                                resolve();
                             })
                             .fail((xhr, status, error) => {
                                 if (settings.debug) {
