@@ -1334,7 +1334,8 @@
                             }
 
                             const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                            $table.data("response", responseAfter ?? processedResponse);
+                            setResponse($table, responseAfter ?? processedResponse);
+                            // $table.data("response", responseAfter ?? processedResponse);
                             resolve();
                         })
                         .catch(error => {
@@ -1359,7 +1360,8 @@
                                 }
 
                                 const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                                $($table).data("response", responseAfter ?? processedResponse);
+                                setResponse($table, responseAfter ?? processedResponse);
+                                // $($table).data("response", responseAfter ?? processedResponse);
                                 resolve();
                             })
                             .catch(error => {
@@ -1394,7 +1396,7 @@
                                 }
 
                                 const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                                $table.data("response", responseAfter ?? processedResponse);
+                                setResponse($table, responseAfter ?? processedResponse);
                                 resolve();
                             })
                             .fail((xhr, status, error) => {
