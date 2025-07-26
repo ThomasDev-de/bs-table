@@ -1377,24 +1377,45 @@
                                 reject(new Error(`Error processing of the function: ${error.message || error}`));
                             });
                     } else {
-                        // 'url' is an actual URL and not a function name
+                        // Standard Ajax-Optionen zusammenfügen
                         let defaultAjaxOptions = {
-                            url: settings.url, method: "GET", data: params, dataType: "json"
+                            url: settings.url,
+                            method: "GET",
+                            data: params,
+                            dataType: "json"
                         };
-                        const customAjaxOptions = $.bsTable.utils.executeFunction(settings.ajaxOptions, settings.url, params);
+
+// Aktive Ajax-Optionen anpassen (falls vorhanden)
+                        const customAjaxOptions = $.bsTable.utils.executeFunction(
+                            settings.ajaxOptions,
+                            settings.url,
+                            params
+                        );
+
                         if (customAjaxOptions && typeof customAjaxOptions === 'object') {
+                            // Standard und benutzerdefinierte Optionen zusammenführen
                             defaultAjaxOptions = $.extend(true, {}, defaultAjaxOptions, customAjaxOptions || {});
                         }
-                        const xhr = $($table).data('xhr') || null;
-                        if (xhr !== null) {
+
+// Vorherigen XHR (falls vorhanden) abbrechen
+                        const previousXHR = $($table).data('xhr') || null;
+
+                        if (previousXHR !== null) {
                             console.log("Vorheriger xhr wird abgebrochen");
-                            xhr.abort();
+                            previousXHR.abort(); // Abbrechen des vorherigen Requests
+                            $($table).removeData('xhr'); // Daten bereinigen
                             console.log("xhr erfolgreich abgebrochen");
-                            $($table).removeData('xhr');
                         }
-                        $table.data('xhr', $.ajax(defaultAjaxOptions)
-                            .done(response => {
-                                console.log("Antwort von Ajax:", response); // DEBUG: Rohdaten anzeigen
+
+// Neuen $.ajax-Request starten und speichern
+                        $table.data('xhr', $.ajax({
+                            url: defaultAjaxOptions.url,
+                            method: defaultAjaxOptions.method,
+                            data: defaultAjaxOptions.data,
+                            dataType: defaultAjaxOptions.dataType,
+                            success: function (response) {
+                                console.log("Antwort von Ajax:", response);
+
                                 try {
                                     const jsonResponse = typeof response === 'string' ? JSON.parse(response) : response;
 
@@ -1411,7 +1432,7 @@
                                     }
 
                                     const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                                    const newResponse = responseAfter ?? processedResponse;
+                                    const newResponse = responseAfter || processedResponse;
 
                                     if (settings.debug) {
                                         console.log("Response nach responseHandler:", responseAfter); // DEBUG
@@ -1421,26 +1442,27 @@
                                         setResponse($table, newResponse);
                                         console.log('setResponse abgeschlossen'); // DEBUG
                                         console.log("Vor resolve()");
-                                        resolve();
+                                        resolve(); // Promise-Auflösung
                                         console.log("Nach resolve()");
                                     } catch (error) {
                                         console.error('Fehler in setResponse:', error); // DEBUG
-                                        reject(error); // Sicherstellen, dass der Fehler richtig propagiert wird
+                                        reject(error); // Fehler weitergeben
                                     }
                                 } catch (error) {
-                                    console.error("Fehler beim Verarbeiten der Daten:", error); // DEBUG
+                                    console.error("Fehler beim Verarbeiten der Daten:", error);
                                     reject(new Error("Fehler beim Parsen der JSON-Antwort: " + error.message));
                                 }
-                            })
-                            .fail((xhr, status, error) => {
+                            },
+                            error: function (xhr, status, error) {
                                 if (settings.debug) {
-                                    console.error("Fehler bei der API-Abfrage (String-URL):", status, error); // DEBUG
+                                    console.error("Fehler bei der API-Abfrage (String-URL):", status, error);
                                 }
                                 reject(new Error(`Fehler bei der API-Abfrage (String-URL): ${status}, ${error}`));
-                            })
-                            .finally(() => {
-                                $table.removeData('xhr');
-                            }));
+                            },
+                            complete: function () {
+                                $table.removeData('xhr'); // Sicherstellen, dass keine offenen XHRs gespeichert sind
+                            }
+                        }));
                     }
                 }
             }
