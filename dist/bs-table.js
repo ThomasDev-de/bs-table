@@ -1109,6 +1109,10 @@
             .then(() => {
                 const response = getResponse($table);
                 triggerEvent($table, 'load-success', response);
+                if (settings.debug) {
+                    console.log('load-success on fetchData', response);
+                    console.log('starting buildTable');
+                }
                 build.table($table);
             })
             .catch(error => {
@@ -1392,8 +1396,12 @@
 
                                     // Verarbeiteten JSON-Inhalt in das erwartete Format umwandeln
                                     const processedResponse = Array.isArray(jsonResponse)
-                                        ? { rows: jsonResponse, total: jsonResponse.length }
-                                        : { ...jsonResponse, rows: jsonResponse.rows || [], total: jsonResponse.total || 0 };
+                                        ? {rows: jsonResponse, total: jsonResponse.length}
+                                        : {
+                                            ...jsonResponse,
+                                            rows: jsonResponse.rows || [],
+                                            total: jsonResponse.total || 0
+                                        };
 
                                     if (settings.debug) {
                                         console.log("API-Antwort erfolgreich verarbeitet:", processedResponse); // DEBUG
@@ -3286,7 +3294,7 @@
             event.stopPropagation();
 
             if (eventName !== 'all') {
-                const allEvent = $.Event(`all${namespace}`, { target: targetTable });
+                const allEvent = $.Event(`all${namespace}`, {target: targetTable});
                 $table.trigger(allEvent, [eventName + namespace, ...args]);
                 $.bsTable.utils.executeFunction(settings.onAll, eventName + namespace, ...args);
                 allEvent.stopPropagation();
