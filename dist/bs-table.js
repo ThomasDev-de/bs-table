@@ -1159,7 +1159,7 @@
      * @param {boolean} [triggerRefresh=false] - Indicates whether a refresh event should be triggered after the data is fetched.
      * @return {Promise<void>} A Promise that resolves when the data fetching and processing is completed or rejects with an error if fetching fails.
      */
-    function fetchData($jqTable, triggerRefresh = false) {
+   async function fetchData($jqTable, triggerRefresh = false) {
         const $table = $($jqTable);
         const settings = getSettings($table);
         if (settings.debug) {
@@ -1388,9 +1388,9 @@
                         const xhr = $($table).data('xhr') || null;
                         if (xhr !== null) {
                             console.log("Vorheriger xhr wird abgebrochen");
-                            // xhr.abort();
+                            xhr.abort();
                             console.log("xhr erfolgreich abgebrochen");
-                            // $($table).removeData('xhr');
+                            $($table).removeData('xhr');
                         }
                         $table.data('xhr', $.ajax(defaultAjaxOptions)
                             .done(response => {
