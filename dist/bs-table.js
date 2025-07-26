@@ -3263,54 +3263,44 @@
      * @param {...any} args           - Additional arguments that should be passed to event handlers.
      */
     function triggerEvent($tableElement, eventName, ...args) {
-        const $table = $($tableElement);
-        // Get the native DOM element of the table
-        const targetTable = $table[0];
+        try {
+            const $table = $($tableElement);
+            const targetTable = $table[0];
+            const settings = getSettings($table);
+            const isSubTable = $table.closest(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
+            const hasSubTables = $(getClosestWrapper($table)).find(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
 
-        // Retrieve the current bsTable settings for this table
-        const settings = getSettings($table);
+            const bsTableDatas = {
+                table: targetTable,
+                settings: settings,
+                isChildTable: isSubTable,
+                hasChildTables: hasSubTables,
+            };
 
-        // Determine if this table is a subtable (within a child wrapper)
-        const isSubTable = $table.closest(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
+            const event = $.Event(eventName + namespace, {
+                target: targetTable,
+                bsTable: bsTableDatas,
+            });
 
-        // Determine if this table contains any sub-tables (children)
-        const hasSubTables = $(getClosestWrapper($table)).find(`.${bsTableClasses.wrapper}[data-child="true"]`).length > 0;
+            $table.trigger(event, args);
+            event.stopPropagation();
 
-        // Compose event-specific table data for event consumers
-        const bsTableDatas = {
-            table: targetTable,
-            settings: settings,
-            isChildTable: isSubTable,
-            hasChildTables: hasSubTables,
-        };
+            if (eventName !== 'all') {
+                const allEvent = $.Event(`all${namespace}`, { target: targetTable });
+                $table.trigger(allEvent, [eventName + namespace, ...args]);
+                $.bsTable.utils.executeFunction(settings.onAll, eventName + namespace, ...args);
+                allEvent.stopPropagation();
 
-        // Create a jQuery event object with namespace and attach table context
-        const event = $.Event(eventName + namespace, {
-            target: targetTable,
-            bsTable: bsTableDatas,
-        });
+                const eventFunctionName = `on${eventName
+                    .split('-')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join('')}`;
 
-        // Trigger the event on the table with any extra arguments
-        $table.trigger(event, args);
-
-        // Prevent the event from bubbling up the DOM
-        event.stopPropagation();
-
-        // Unless this is the generic 'all' event, fire 'all' for global event listeners too
-        if (eventName !== 'all') {
-            const allEvent = $.Event(`all${namespace}`, {target: targetTable});
-            $table.trigger(allEvent, [eventName + namespace, ...args]);
-            $.bsTable.utils.executeFunction(settings.onAll, eventName + namespace, ...args);
-            allEvent.stopPropagation();
-
-            // Automatically map the event name to a settings handler and execute it
-            // Convert event name to CamelCase + add "on" prefix (e.g., "show-info-window" -> "onShowInfoWindow")
-            const eventFunctionName = `on${eventName
-                .split('-')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join('')}`;
-
-            $.bsTable.utils.executeFunction(settings[eventFunctionName], ...args);
+                $.bsTable.utils.executeFunction(settings[eventFunctionName], ...args);
+            }
+        } catch (error) {
+            // Fehler abfangen und den Fehler in der Konsole ausgeben
+            console.error("Fehler in triggerEvent:", error);
         }
     }
 
