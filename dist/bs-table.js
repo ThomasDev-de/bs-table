@@ -1377,7 +1377,6 @@
                                 reject(new Error(`Error processing of the function: ${error.message || error}`));
                             });
                     } else {
-                        // Standard Ajax-Optionen zusammenfügen
                         let defaultAjaxOptions = {
                             url: settings.url,
                             method: "GET",
@@ -1385,7 +1384,6 @@
                             dataType: "json"
                         };
 
-// Aktive Ajax-Optionen anpassen (falls vorhanden)
                         const customAjaxOptions = $.bsTable.utils.executeFunction(
                             settings.ajaxOptions,
                             settings.url,
@@ -1393,28 +1391,31 @@
                         );
 
                         if (customAjaxOptions && typeof customAjaxOptions === 'object') {
-                            // Standard und benutzerdefinierte Optionen zusammenführen
                             defaultAjaxOptions = $.extend(true, {}, defaultAjaxOptions, customAjaxOptions || {});
                         }
 
-// Vorherigen XHR (falls vorhanden) abbrechen
                         const previousXHR = $($table).data('xhr') || null;
 
                         if (previousXHR !== null) {
-                            console.log("Vorheriger xhr wird abgebrochen");
-                            previousXHR.abort(); // Abbrechen des vorherigen Requests
-                            $($table).removeData('xhr'); // Daten bereinigen
-                            console.log("xhr erfolgreich abgebrochen");
+                            if (settings.debug) {
+                                console.log("Vorheriger xhr wird abgebrochen");
+                            }
+                            previousXHR.abort();
+                            $($table).removeData('xhr');
+                            if (settings.debug) {
+                                console.log("xhr erfolgreich abgebrochen");
+                            }
                         }
 
-// Neuen $.ajax-Request starten und speichern
                         $table.data('xhr', $.ajax({
                             url: defaultAjaxOptions.url,
                             method: defaultAjaxOptions.method,
                             data: defaultAjaxOptions.data,
                             dataType: defaultAjaxOptions.dataType,
                             success: function (response) {
-                                console.log("Antwort von Ajax:", response);
+                                if (settings.debug) {
+                                    console.log("Antwort von Ajax:", response);
+                                }
 
                                 try {
                                     const jsonResponse = typeof response === 'string' ? JSON.parse(response) : response;
@@ -1440,16 +1441,20 @@
 
                                     try {
                                         setResponse($table, newResponse);
-                                        console.log('setResponse abgeschlossen'); // DEBUG
-                                        console.log("Vor resolve()");
-                                        resolve(); // Promise-Auflösung
-                                        console.log("Nach resolve()");
+                                        if (settings.debug) {
+                                            console.log('setResponse abgeschlossen'); // DEBUG
+                                        }
+                                        resolve();
                                     } catch (error) {
-                                        console.error('Fehler in setResponse:', error); // DEBUG
+                                        if (settings.debug) {
+                                            console.error('Fehler in setResponse:', error); // DEBUG
+                                        }
                                         reject(error); // Fehler weitergeben
                                     }
                                 } catch (error) {
-                                    console.error("Fehler beim Verarbeiten der Daten:", error);
+                                    if (settings.debug) {
+                                        console.error("Fehler beim Verarbeiten der Daten:", error);
+                                    }
                                     reject(new Error("Fehler beim Parsen der JSON-Antwort: " + error.message));
                                 }
                             },
