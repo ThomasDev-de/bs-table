@@ -1107,6 +1107,8 @@
 
         fetchData($table, triggerRefresh)
             .then(() => {
+                console.log('Resolve block reached'); // Prüfen, ob dies ausgeführt wird
+
                 const response = getResponse($table);
                 triggerEvent($table, 'load-success', response);
                 if (settings.debug) {
