@@ -1392,13 +1392,12 @@
                         }
                         $table.data('xhr', $.ajax(defaultAjaxOptions)
                             .done(response => {
+                                console.log("Antwort von Ajax:", response); // DEBUG: Rohdaten anzeigen
                                 try {
-                                    // JSON-String zu einem Objekt parsen (falls notwendig)
                                     const jsonResponse = typeof response === 'string' ? JSON.parse(response) : response;
 
-                                    // Verarbeiteten JSON-Inhalt in das erwartete Format umwandeln
                                     const processedResponse = Array.isArray(jsonResponse)
-                                        ? {rows: jsonResponse, total: jsonResponse.length}
+                                        ? { rows: jsonResponse, total: jsonResponse.length }
                                         : {
                                             ...jsonResponse,
                                             rows: jsonResponse.rows || [],
@@ -1411,16 +1410,21 @@
 
                                     const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
                                     const newResponse = responseAfter ?? processedResponse;
+
                                     if (settings.debug) {
-                                        console.log("Response after call responseHanlder:", responseAfter); // DEBUG
-                                        console.log("New Response", newResponse); // DEBUG
+                                        console.log("Response nach responseHandler:", responseAfter); // DEBUG
                                     }
-                                    setResponse($table, newResponse);
-                                    resolve();
+
+                                    try {
+                                        setResponse($table, newResponse);
+                                        console.log('setResponse abgeschlossen'); // DEBUG
+                                        resolve(); // Sollte hier ausgeführt werden
+                                    } catch (error) {
+                                        console.error('Fehler in setResponse:', error); // DEBUG
+                                        reject(error); // Sicherstellen, dass der Fehler richtig propagiert wird
+                                    }
                                 } catch (error) {
-                                    if (settings.debug) {
-                                        console.error("JSON-Parsing-Fehler:", error); // DEBUG
-                                    }
+                                    console.error("Fehler beim Verarbeiten der Daten:", error); // DEBUG
                                     reject(new Error("Fehler beim Parsen der JSON-Antwort: " + error.message));
                                 }
                             })
