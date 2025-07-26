@@ -1387,8 +1387,10 @@
                         }
                         const xhr = $($table).data('xhr') || null;
                         if (xhr !== null) {
-                            xhr.abort();
-                            $($table).removeData('xhr');
+                            console.log("Vorheriger xhr wird abgebrochen");
+                            // xhr.abort();
+                            console.log("xhr erfolgreich abgebrochen");
+                            // $($table).removeData('xhr');
                         }
                         $table.data('xhr', $.ajax(defaultAjaxOptions)
                             .done(response => {
