@@ -1418,7 +1418,9 @@
                                     try {
                                         setResponse($table, newResponse);
                                         console.log('setResponse abgeschlossen'); // DEBUG
-                                        resolve(); // Sollte hier ausgeführt werden
+                                        console.log("Vor resolve()");
+                                        resolve();
+                                        console.log("Nach resolve()");
                                     } catch (error) {
                                         console.error('Fehler in setResponse:', error); // DEBUG
                                         reject(error); // Sicherstellen, dass der Fehler richtig propagiert wird
