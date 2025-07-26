@@ -1400,7 +1400,12 @@
                                     }
 
                                     const responseAfter = $.bsTable.utils.executeFunction(settings.responseHandler, processedResponse);
-                                    setResponse($table, responseAfter ?? processedResponse);
+                                    const newResponse = responseAfter ?? processedResponse;
+                                    if (settings.debug) {
+                                        console.log("Response after call responseHanlder:", responseAfter); // DEBUG
+                                        console.log("New Response", newResponse); // DEBUG
+                                    }
+                                    setResponse($table, newResponse);
                                     resolve();
                                 } catch (error) {
                                     if (settings.debug) {
