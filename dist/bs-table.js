@@ -134,7 +134,7 @@
             class: undefined,
             field: undefined,
             sortable: false,
-            visible: true,
+            visible: undefined,
             width: undefined,
             valign: undefined,
             align: undefined,
