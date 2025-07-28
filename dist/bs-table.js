@@ -2180,6 +2180,12 @@
             }
 
             const showPagination = settings.pagination === true && totalRows > pageSize;
+            console.log("Show Pagination:", showPagination, settings.pagination, totalRows > pageSize);
+            if (showPagination) {
+                const $pagination = this.pagination($table, totalRows);
+                $pagination.appendTo($topPaginationContainer);
+                this.paginationDetails($table, totalRows);
+            }
             if (showPagination) {
                 this.paginationDetails($table, totalRows);
                 if (pageSize !== 0) {
