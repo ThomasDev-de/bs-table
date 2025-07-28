@@ -2179,15 +2179,14 @@
                 $btnContainer.removeClass('ms-2');
             }
 
-            const showPagination = settings.pagination === true && totalRows > pageSize;
-            // console.log("Show Pagination:", showPagination, settings.pagination, totalRows > pageSize);
-            if (showPagination) {
-                const $pagination = this.pagination($table, totalRows);
-                $pagination.appendTo($topPaginationContainer);
+            if (settings.pagination === true) {
+                // Pagination Details immer anzeigen
                 this.paginationDetails($table, totalRows);
-                // console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
-                if (pageSize !== 0) {
-                    console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
+
+                // Bedingung für das Anzeigen der Pagination-Steuerungen
+                const showPaginationControls = totalRows > pageSize && pageSize > 0;
+
+                if (showPaginationControls) {
                     const $paginationHtml = $(this.pagination($table, totalRows));
                     const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
                     const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
