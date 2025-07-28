@@ -2179,7 +2179,7 @@
                 $btnContainer.removeClass('ms-2');
             }
 
-            const showPagination = settings.pagination !== false && totalRows > pageSize;
+            const showPagination = settings.pagination === true && totalRows > pageSize;
             if (showPagination) {
                 this.paginationDetails($table, totalRows);
                 if (pageSize !== 0) {
