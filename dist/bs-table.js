@@ -2186,11 +2186,12 @@
                     const $paginationHtml = $(this.pagination($table, totalRows));
                     const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
                     const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
+
                     if (showOnTop) {
-                        $topPaginationContainer.append($paginationHtml.clone());
+                        $topPaginationContainer.empty().append($paginationHtml.clone());
                     }
                     if (showOnBottom) {
-                        $bottomPaginationContainer.append($paginationHtml.clone());
+                        $bottomPaginationContainer.empty().append($paginationHtml.clone());
                     }
                 }
             }
