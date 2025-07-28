@@ -2180,7 +2180,7 @@
             }
 
             const showPagination = settings.pagination === true && totalRows > pageSize;
-            console.log("Show Pagination:", showPagination, settings.pagination, totalRows > pageSize);
+            // console.log("Show Pagination:", showPagination, settings.pagination, totalRows > pageSize);
             if (showPagination) {
                 const $pagination = this.pagination($table, totalRows);
                 $pagination.appendTo($topPaginationContainer);
@@ -2188,8 +2188,9 @@
             }
             if (showPagination) {
                 this.paginationDetails($table, totalRows);
-                console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
+                // console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
                 if (pageSize !== 0) {
+                    console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
                     const $paginationHtml = $(this.pagination($table, totalRows));
                     const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
                     const showOnBottom = ['bottom', 'both'].includes(settings.paginationVAlign);
