@@ -2188,7 +2188,7 @@
             }
             if (showPagination) {
                 this.paginationDetails($table, totalRows);
-                console.log("Pagination Details", pageSize, pageNumber, currentPageData.length);
+                console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
                 if (pageSize !== 0) {
                     const $paginationHtml = $(this.pagination($table, totalRows));
                     const showOnTop = ['top', 'both'].includes(settings.paginationVAlign);
