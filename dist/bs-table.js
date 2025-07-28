@@ -2184,6 +2184,7 @@
             if (showPagination) {
                 const $pagination = this.pagination($table, totalRows);
                 $pagination.appendTo($topPaginationContainer);
+                this.paginationDetails($table, totalRows);
                 // console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
                 if (pageSize !== 0) {
                     console.log("Pagination Details", typeof pageSize, pageNumber, currentPageData.length);
